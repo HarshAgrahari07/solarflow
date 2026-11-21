@@ -13,6 +13,7 @@ export default function TopBar({
   alertsEnabled,
   showSearch = true,
   showNotifications = true,
+  searchPlaceholder = 'Search customers, sites, technicians',
 }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -70,7 +71,7 @@ export default function TopBar({
           <input
             type="search"
             value={query}
-            placeholder="Search customers, sites, technicians"
+            placeholder={searchPlaceholder}
             onChange={(event) => onQueryChange(event.target.value)}
           />
         </label>

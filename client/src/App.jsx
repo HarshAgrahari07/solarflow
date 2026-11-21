@@ -530,6 +530,13 @@ function AppController() {
   if (auth.status === 'loading') {
     return (
       <main className="auth-loading" role="status" aria-live="polite">
+        <div className="dashboard-skeleton" aria-hidden="true">
+          <div className="skeleton-heading" />
+          <div className="skeleton-cards">
+            {[0, 1, 2].map((item) => <span className="skeleton-card" key={item} />)}
+          </div>
+          <div className="skeleton-table" />
+        </div>
         <span className="loading-spinner" aria-hidden="true" />
         <p>Verifying your SunPower session…</p>
       </main>

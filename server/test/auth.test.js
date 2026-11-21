@@ -9,7 +9,12 @@ import { afterEach, beforeEach, test } from 'node:test'
 import { createApp } from '../src/app.js'
 import { openDatabase } from '../src/database/connection.js'
 import { initializeDatabase } from '../src/database/schema.js'
-import { AUTH_COOKIE_NAME, authenticate, authorizeRoles } from '../src/middleware/authenticate.js'
+import {
+  AUTH_COOKIE_NAME,
+  authenticate,
+  authorizePermission,
+  authorizeRoles,
+} from '../src/middleware/authenticate.js'
 import { errorHandler } from '../src/middleware/errorHandler.js'
 
 let database
@@ -75,7 +80,25 @@ beforeEach(async () => {
   protectedApp.get(
     '/finance',
     authenticate({ database, config }),
-    authorizeRoles('FINANCE'),
+    authorizePermission('finance:admin'),
+    (request, response) => response.json({ role: request.user.role }),
+  )
+  protectedApp.get(
+    '/warehouse',
+    authenticate({ database, config }),
+    authorizePermission('warehouse:admin'),
+    (request, response) => response.json({ role: request.user.role }),
+  )
+  protectedApp.post(
+    '/survey-approval',
+    authenticate({ database, config }),
+    authorizePermission('survey:approve'),
+    (request, response) => response.json({ role: request.user.role }),
+  )
+  protectedApp.get(
+    '/staff-admin',
+    authenticate({ database, config }),
+    authorizePermission('staff:create'),
     (request, response) => response.json({ role: request.user.role }),
   )
   protectedApp.use(errorHandler)
@@ -137,6 +160,20 @@ test('all eight role accounts can log in and restore their user from /me', async
   }
 })
 
+test('customers receive only their own authenticated profile from /me', async () => {
+  const cookie = await getCookie('customer@sunpower.demo')
+  const response = await fetch(`${baseUrl}/api/auth/me`, {
+    headers: { Cookie: cookie },
+  })
+  const body = await response.json()
+
+  assert.equal(response.status, 200)
+  assert.equal(body.user.email, 'customer@sunpower.demo')
+  assert.equal(body.user.role, 'CUSTOMER')
+  assert.equal('customers' in body, false)
+  assert.equal('password_hash' in body.user, false)
+})
+
 test('invalid password receives a generic credentials error', async () => {
   const response = await fetch(`${baseUrl}/api/auth/login`, {
     method: 'POST',
@@ -149,6 +186,25 @@ test('invalid password receives a generic credentials error', async () => {
     code: 'INVALID_CREDENTIALS',
     message: 'Invalid email or password',
   })
+})
+
+test('inactive users cannot sign in or continue an existing session', async () => {
+  const cookie = await getCookie('admin@sunpower.demo')
+  const admin = database.prepare('SELECT id FROM users WHERE email = ?')
+    .get('admin@sunpower.demo')
+  database.prepare('UPDATE users SET is_active = 0 WHERE id = ?').run(admin.id)
+
+  const sessionResponse = await fetch(`${baseUrl}/api/auth/me`, {
+    headers: { Cookie: cookie },
+  })
+  const loginResponse = await fetch(`${baseUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'admin@sunpower.demo', password }),
+  })
+
+  assert.equal(sessionResponse.status, 401)
+  assert.equal(loginResponse.status, 401)
 })
 
 test('expired sessions are rejected', async () => {
@@ -251,22 +307,24 @@ test('only administrators can create supported staff accounts', async () => {
   assert.equal('password_hash' in body.user, false)
 })
 
-test('customers cannot create staff and administrators cannot create administrators', async () => {
-  const customerCookie = await getCookie('customer@sunpower.demo')
-  const customerResponse = await fetch(`${baseUrl}/api/admin/users`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Cookie: customerCookie,
-    },
-    body: JSON.stringify({
-      fullName: 'Attempted Staff',
-      email: 'attempted.staff@example.test',
-      password: randomBytes(18).toString('base64url'),
-      role: 'SALES',
-    }),
-  })
-  assert.equal(customerResponse.status, 403)
+test('only administrators can create staff and administrators cannot create administrators', async () => {
+  for (const [role, email] of ROLE_EMAILS.filter(([role]) => role !== 'ADMIN')) {
+    const cookie = await getCookie(email)
+    const response = await fetch(`${baseUrl}/api/admin/users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: cookie,
+      },
+      body: JSON.stringify({
+        fullName: `Attempted ${role}`,
+        email: `attempted.${role.toLowerCase()}@example.test`,
+        password: randomBytes(18).toString('base64url'),
+        role: 'SALES',
+      }),
+    })
+    assert.equal(response.status, 403, `${role} must not create staff accounts`)
+  }
 
   const adminCookie = await getCookie('admin@sunpower.demo')
   const adminPromotionResponse = await fetch(`${baseUrl}/api/admin/users`, {
@@ -294,12 +352,29 @@ test('unauthenticated requests are denied protected access', async () => {
   assert.equal(response.status, 401)
 })
 
-test('technicians cannot access finance-only routes', async () => {
-  const technicianCookie = await getCookie('technician@sunpower.demo')
-  const response = await fetch(`${protectedBaseUrl}/finance`, {
-    headers: { Cookie: technicianCookie },
+test('backend permissions deny role access to finance, warehouse, survey approval, and admin scopes', async () => {
+  const deniedCases = [
+    ['sales@sunpower.demo', '/finance'],
+    ['technician@sunpower.demo', '/warehouse'],
+    ['surveyor@sunpower.demo', '/survey-approval'],
+    ['support@sunpower.demo', '/staff-admin'],
+    ['customer@sunpower.demo', '/staff-admin'],
+  ]
+
+  for (const [email, path] of deniedCases) {
+    const cookie = await getCookie(email)
+    const response = await fetch(`${protectedBaseUrl}${path}`, {
+      method: path === '/survey-approval' ? 'POST' : 'GET',
+      headers: { Cookie: cookie },
+    })
+    assert.equal(response.status, 403, `${email} must not access ${path}`)
+  }
+
+  const financeCookie = await getCookie('finance@sunpower.demo')
+  const financeResponse = await fetch(`${protectedBaseUrl}/finance`, {
+    headers: { Cookie: financeCookie },
   })
-  assert.equal(response.status, 403)
+  assert.equal(financeResponse.status, 200)
 })
 
 test('authorization reads the user role from SQLite instead of JWT claims', async () => {

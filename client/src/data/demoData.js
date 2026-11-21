@@ -52,6 +52,34 @@ export const STATS = [
     note: 'Synthetic demo tickets awaiting customer resolution',
     icon: 'service',
   },
+  {
+    id: 'active-installations',
+    label: 'Active Installations',
+    value: '8',
+    note: 'Synthetic monthly workload distribution',
+    icon: 'installations',
+  },
+  {
+    id: 'pending-quotations',
+    label: 'Pending Quotations',
+    value: '2',
+    note: 'Synthetic drafts and reviews',
+    icon: 'quotations',
+  },
+  {
+    id: 'inventory-alerts',
+    label: 'Inventory Alerts',
+    value: '1',
+    note: 'Synthetic inverter reorder alert',
+    icon: 'inventory',
+  },
+  {
+    id: 'invoiced-revenue',
+    label: 'Demo Invoiced Revenue',
+    value: '₹28.8L',
+    note: 'Synthetic financial summary; not live revenue',
+    icon: 'finance',
+  },
 ]
 
 // The company benchmark is approximately 40 rooftop projects per month.
