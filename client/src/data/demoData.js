@@ -421,13 +421,13 @@ export const QUICK_ACTIONS = [
   {
     id: 'installation',
     label: 'Schedule Installation',
-    detail: 'Assign crew from 15 technicians (1–5 kW)',
+    detail: 'Schedule a confirmed customer order and assign a technician',
     icon: 'installations',
   },
   {
     id: 'inventory',
-    label: 'Add Inventory',
-    detail: 'Record inverters, batteries, panels, kits',
+    label: 'Receive Inventory',
+    detail: 'Post stock receipts and verify serialized products',
     icon: 'inventory',
   },
 ]

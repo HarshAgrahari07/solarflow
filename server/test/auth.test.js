@@ -138,7 +138,11 @@ afterEach(async () => {
 test('health endpoint returns an OK status', async () => {
   const response = await fetch(`${baseUrl}/api/health`)
   assert.equal(response.status, 200)
-  assert.deepEqual(await response.json(), { status: 'ok' })
+  assert.deepEqual(await response.json(), {
+    status: 'ok',
+    database: 'ok',
+    readiness: 'ready',
+  })
 })
 
 test('login returns a safe user and HttpOnly cookie', async () => {
@@ -296,7 +300,7 @@ test('public registration rejects supplied staff or administrator roles', async 
       address: '12 Solar Street, Ludhiana',
       category: 'Home',
       solarRequirement: 'On-Grid System',
-      capacityKw: null,
+      capacityKw: 2,
       role: 'ADMIN',
     }),
   })
@@ -339,6 +343,86 @@ test('public registration rejects supplied staff or administrator roles', async 
       }),
     })
     assert.equal(invalidLeadResponse.status, 400)
+
+    const missingCapacityResponse = await fetch(`${baseUrl}/api/customers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: adminCookie },
+      body: JSON.stringify({
+        fullName: 'Missing Capacity',
+        email: 'missing.capacity@example.test',
+        phone: '+91 98765 43210',
+        address: '12 Solar Street, Ludhiana',
+        category: 'Home',
+        solarRequirement: 'On-Grid System',
+      }),
+    })
+    assert.equal(missingCapacityResponse.status, 400)
+  })
+
+  test('duplicate customer emails are rejected without creating a second lead', async () => {
+    const adminCookie = await getCookie('admin@sunpower.demo')
+    const payload = {
+      fullName: 'Duplicate Check',
+      email: 'duplicate.check@example.test',
+      phone: '+91 98765 43210',
+      address: '12 Solar Street, Ludhiana',
+      category: 'Home',
+      solarRequirement: 'On-Grid System',
+      capacityKw: 2,
+    }
+    const headers = { 'Content-Type': 'application/json', Cookie: adminCookie }
+    const first = await fetch(`${baseUrl}/api/customers`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    })
+    const duplicate = await fetch(`${baseUrl}/api/customers`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    })
+    assert.equal(first.status, 201)
+    assert.equal(duplicate.status, 409)
+    assert.equal(database.prepare('SELECT COUNT(*) AS count FROM customers WHERE email = ?')
+      .get(payload.email).count, 1)
+  })
+
+  test('CRM listing distinguishes seeded demonstration records from live records', async () => {
+    const adminCookie = await getCookie('admin@sunpower.demo')
+    const response = await fetch(`${baseUrl}/api/customers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: adminCookie },
+      body: JSON.stringify({
+        fullName: 'Synthetic CRM Record',
+        email: 'synthetic.crm@example.test',
+        phone: '+91 98765 43210',
+        address: '12 Solar Street, Ludhiana',
+        category: 'Home',
+        solarRequirement: 'On-Grid System',
+        capacityKw: 2,
+      }),
+    })
+    const customer = (await response.json()).customer
+    const batchId = randomUUID()
+    database.prepare(`
+      INSERT INTO demo_seed_batches (id, name, description)
+      VALUES (?, 'CRM test demo', 'Synthetic CRM provenance test')
+    `).run(batchId)
+    database.prepare(`
+      INSERT INTO demo_seed_records (batch_id, entity_type, entity_id)
+      VALUES (?, 'customers', ?)
+    `).run(batchId, customer.id)
+
+    const liveResponse = await fetch(`${baseUrl}/api/customers?recordType=real&search=Synthetic%20CRM%20Record`, {
+      headers: { Cookie: adminCookie },
+    })
+    const demoResponse = await fetch(`${baseUrl}/api/customers?recordType=demo&search=Synthetic%20CRM%20Record`, {
+      headers: { Cookie: adminCookie },
+    })
+    assert.deepEqual((await liveResponse.json()).customers, [])
+    const demoBody = await demoResponse.json()
+    assert.equal(demoBody.customers.length, 1)
+    assert.equal(demoBody.customers[0].isDemo, true)
   })
 
   test('customer registration links an existing CRM lead without discarding its sales workflow', async () => {
@@ -413,6 +497,7 @@ test('public registration rejects supplied staff or administrator roles', async 
         solarRequirement: 'Off-Grid System',
         capacityKw: 5,
         assignedTo: salesId,
+        leadSource: 'REFERRAL',
         notes: 'Interested in a site survey',
       }),
     })
@@ -423,21 +508,35 @@ test('public registration rejects supplied staff or administrator roles', async 
     assert.equal(created.solarRequirement, 'Off-Grid System')
     assert.equal(created.capacityKw, 5)
     assert.equal(created.assignedTo, salesId)
+    assert.equal(created.leadSource, 'REFERRAL')
 
     const salesCookie = await getCookie('sales@sunpower.demo')
-    const searchResponse = await fetch(`${baseUrl}/api/customers?search=CRM%20Lead`, {
+    const searchResponse = await fetch(`${baseUrl}/api/customers?search=CRM%20Lead&category=Small%20Factory&page=1&pageSize=5&sortBy=name&sortOrder=asc`, {
       headers: { Cookie: salesCookie },
     })
     assert.equal(searchResponse.status, 200)
-    assert.deepEqual((await searchResponse.json()).customers.map((customer) => customer.id), [created.id])
+    const searchBody = await searchResponse.json()
+    assert.deepEqual(searchBody.customers.map((customer) => customer.id), [created.id])
+    assert.deepEqual(searchBody.pagination, { page: 1, pageSize: 5, total: 1, totalPages: 1 })
 
     const updateResponse = await fetch(`${baseUrl}/api/customers/${created.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Cookie: salesCookie },
-      body: JSON.stringify({ leadStatus: 'Qualified', notes: 'Survey requested' }),
+      body: JSON.stringify({
+        leadStatus: 'Survey Pending',
+        leadSource: 'PHONE',
+        notes: 'Survey requested',
+      }),
     })
     assert.equal(updateResponse.status, 200)
-    assert.equal((await updateResponse.json()).customer.leadStatus, 'Qualified')
+    const updatedCustomer = (await updateResponse.json()).customer
+    assert.equal(updatedCustomer.leadStatus, 'Survey Pending')
+    assert.equal(updatedCustomer.leadSource, 'PHONE')
+    assert.deepEqual(
+      database.prepare('SELECT status, stage, source FROM leads WHERE customer_id = ?')
+        .get(created.id),
+      { status: 'Survey Scheduled', stage: 'Survey Pending', source: 'PHONE' },
+    )
 
     const archiveResponse = await fetch(`${baseUrl}/api/customers/${created.id}`, {
       method: 'DELETE',
@@ -466,7 +565,7 @@ test('public registration rejects supplied staff or administrator roles', async 
         address: '12 Solar Street, Ludhiana',
         category: 'Home',
         solarRequirement: 'On-Grid System',
-        capacityKw: null,
+        capacityKw: 3,
         assignedTo: anotherSalesId,
       }),
     })
@@ -483,6 +582,7 @@ test('public registration rejects supplied staff or administrator roles', async 
         address: '12 Solar Street, Ludhiana',
         category: 'Home',
         solarRequirement: 'On-Grid System',
+        capacityKw: 3,
         capacityKw: 3,
         assignedTo: null,
       }),
@@ -541,6 +641,7 @@ test('public registration rejects supplied staff or administrator roles', async 
         address: '12 Solar Street, Ludhiana',
         category: 'Home',
         solarRequirement: 'On-Grid System',
+        capacityKw: 3,
       }),
     })
     const lead = (await leadResponse.json()).customer
@@ -570,7 +671,7 @@ test('public registration rejects supplied staff or administrator roles', async 
         phone: '+91 98765 43210',
         address: '12 Solar Street, Ludhiana',
         category: 'Home',
-        solarRequirement: 'Solar Panel Set',
+        solarRequirement: 'Off-Grid System',
         capacityKw: 2,
         assignedTo: salesId,
       }),
@@ -581,13 +682,14 @@ test('public registration rejects supplied staff or administrator roles', async 
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Cookie: salesCookie },
       body: JSON.stringify({
-        dueAt: new Date(Date.now() + 60_000).toISOString(),
+        dueAt: new Date(Date.now() - 60_000).toISOString(),
         note: 'Call to confirm site survey date',
       }),
     })
     const followUp = (await followUpResponse.json()).followUp
     assert.equal(followUpResponse.status, 201)
     assert.equal(followUp.completed, false)
+    assert.equal(followUp.overdue, true)
     const salesCustomerResponse = await fetch(`${baseUrl}/api/customers/${customerId}`, {
       headers: { Cookie: salesCookie },
     })
@@ -647,6 +749,11 @@ test('public registration rejects supplied staff or administrator roles', async 
         INSERT INTO users (id, full_name, email, password_hash, role)
         VALUES (?, 'CRM Admin', 'crm-admin@example.test', 'unused-test-hash', 'ADMIN')
       `).run(adminId)
+      const salesId = randomUUID()
+      persistentDatabase.prepare(`
+        INSERT INTO users (id, full_name, email, password_hash, role)
+        VALUES (?, 'CRM Sales', 'crm-sales@example.test', 'unused-test-hash', 'SALES')
+      `).run(salesId)
       const customer = createCustomer(persistentDatabase, {
         fullName: 'Persistent Lead',
         email: 'persistent.lead@example.test',
@@ -656,6 +763,7 @@ test('public registration rejects supplied staff or administrator roles', async 
         solarRequirement: 'On-Grid System',
         capacityKw: 3,
         leadStatus: 'New',
+        assignedTo: salesId,
         notes: '',
       }, { id: adminId, role: 'ADMIN' })
       createFollowUp(persistentDatabase, customer.id, {

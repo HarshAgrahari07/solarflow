@@ -731,11 +731,48 @@
   color: var(--muted);
 }
 
+.crm-demo-tag {
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--green-800);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .crm-caption {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   padding: 0 4px;
+  font-size: 13px;
+}
+
+.crm-filter-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.crm-filter-bar .field {
+  min-width: 0;
+}
+
+.crm-overdue {
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--red-700);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.crm-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -829,6 +866,40 @@
   width: min(680px, 100%);
 }
 
+.crm-details-dialog {
+  width: min(760px, 100%);
+}
+
+.crm-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 20px 0;
+}
+
+.crm-details-grid > div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfdfc;
+}
+
+.crm-details-grid dt {
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.crm-details-grid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.crm-details-span {
+  grid-column: 1 / -1;
+}
+
 .crm-followup-form,
 .crm-followup-list {
   display: grid;
@@ -880,6 +951,68 @@
 .form-grid {
   display: grid;
   gap: 14px;
+}
+
+.operational-workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.operational-workspace > .panel,
+.installation-operations {
+  display: grid;
+  gap: 14px;
+}
+
+.operational-actions {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.operational-actions input,
+.operational-actions select {
+  min-width: 150px;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: white;
+  font: inherit;
+}
+
+.operational-actions > strong {
+  flex: 1 1 100%;
+}
+
+.installation-operations {
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--green-50);
+}
+
+.operational-workspace .customer-project-card {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.operational-workspace .customer-project-card > div:first-child {
+  min-width: min(100%, 260px);
+}
+
+@media (max-width: 640px) {
+  .operational-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .operational-actions input,
+  .operational-actions select {
+    width: 100%;
+  }
 }
 
 .settings-form {
@@ -1062,12 +1195,22 @@ select:focus-visible {
     grid-template-columns: 1fr;
   }
 
+  .crm-details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .crm-details-span {
+    grid-column: auto;
+  }
+
   .crm-form-span {
     grid-column: auto;
   }
 
-  .crm-followup-item {
+  .crm-followup-item,
+  .crm-pagination {
     flex-direction: column;
+    align-items: stretch;
   }
 
 }
@@ -1297,4 +1440,209 @@ select:focus-visible {
 .mini-pill-amber {
   background: #fbf6ea;
   color: #8a6410;
+}
+
+.survey-management,
+.quotation-management {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.survey-message {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+.survey-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.survey-address-field,
+.survey-form-actions,
+.survey-selection-summary {
+  grid-column: 1 / -1;
+}
+
+.survey-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.survey-detail-panel {
+  scroll-margin-top: 100px;
+}
+
+.survey-visit-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--green-50);
+}
+
+.survey-reschedule-note {
+  margin: 16px 0;
+  color: var(--muted);
+}
+
+.survey-findings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.survey-findings-form h3,
+.survey-photo-section h3,
+.survey-history h3 {
+  margin: 8px 0 0;
+}
+
+.survey-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.survey-summary-grid > div:not(.survey-photo-grid) {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+
+.survey-summary-grid strong {
+  color: var(--green-900);
+}
+
+.survey-photo-section {
+  margin-top: 18px;
+}
+
+.survey-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.survey-photo-grid figure {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--green-50);
+}
+
+.survey-photo-grid img {
+  display: block;
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  background: #edf3ef;
+}
+
+.survey-photo-grid figcaption {
+  padding: 8px 10px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.survey-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 24px;
+  color: var(--muted);
+}
+
+.survey-table td small {
+  display: block;
+  max-width: 280px;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.survey-history {
+  margin-top: 18px;
+}
+
+.survey-history ol {
+  display: grid;
+  gap: 10px;
+  padding-left: 22px;
+}
+
+.survey-history li span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.survey-approval-dialog {
+  width: min(920px, 100%);
+}
+
+.survey-review-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.survey-review-body .survey-summary-grid {
+  margin-top: 0;
+}
+
+.customer-surveys {
+  margin-top: 18px;
+  padding: 20px;
+}
+
+.customer-surveys-empty {
+  color: var(--muted);
+  padding: 16px 0 4px;
+}
+
+@media (max-width: 640px) {
+  .survey-form-grid,
+  .survey-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .survey-address-field,
+  .survey-form-actions,
+  .survey-selection-summary {
+    grid-column: auto;
+  }
+
+  .survey-visit-actions,
+  .job-summary-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .survey-review-body .dialog-actions {
+    flex-direction: column;
+  }
+
+  .survey-review-body .dialog-actions button {
+    width: 100%;
+  }
 }

@@ -5,7 +5,7 @@ import {
   createFollowUp,
   getCustomerForActor,
   getCustomerForUser,
-  listCustomers,
+  listCustomersPage,
   listFollowUps,
   listSalesUsers,
   updateCustomer,
@@ -18,13 +18,13 @@ export function createCustomerController({ database }) {
     list: asyncHandler((request, response, next) => {
       const parsed = customerListQuerySchema.safeParse(request.query)
       if (!parsed.success) return next(parsed.error)
-      const { search, leadStatus, includeArchived } = parsed.data
+      const { includeArchived, ...options } = parsed.data
+      const result = listCustomersPage(database, request.user, {
+        ...options,
+        includeArchived: includeArchived === 'true',
+      })
       response.json({
-        customers: listCustomers(database, request.user, {
-          search,
-          leadStatus,
-          includeArchived: includeArchived === 'true',
-        }),
+        ...result,
         salesUsers: listSalesUsers(database),
       })
     }),

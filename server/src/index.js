@@ -1,8 +1,8 @@
 import { createApp } from './app.js'
 
 const app = createApp()
-const server = app.listen(app.locals.config.port, () => {
-  console.log(`SunPower API listening on http://localhost:${app.locals.config.port}`)
+const server = app.listen(app.locals.config.port, '0.0.0.0', () => {
+  console.log(`SunPower application listening on 0.0.0.0:${app.locals.config.port}`)
 })
 
 server.on('error', (error) => {

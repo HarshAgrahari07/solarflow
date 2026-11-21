@@ -9,9 +9,10 @@ import {
   matchesQuery,
 } from '../data/demoData'
 import DemoBanner from './DemoBanner'
-import FinanceView from './FinanceView'
 import Icon from './Icon'
-import InstallationChart from './InstallationChart'
+import OperationalWorkspace from './OperationalWorkspace'
+import SurveyManagement from './SurveyManagement'
+import QuotationManagement from './QuotationManagement'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
 
@@ -248,7 +249,8 @@ export default function RoleWorkspace({ user, onLogout }) {
           searchPlaceholder="Search this workspace"
         />
         <main className="content role-content">
-          {!(user.role === 'FINANCE' && activeId === 'finance') && activeId !== 'customers' && <DemoBanner />}
+          {!['customers', 'surveys', 'quotations', 'inventory', 'installations', 'warranties', 'service', 'finance', 'reports'].includes(activeId)
+            && <DemoBanner />}
           {activeId === 'overview' ? (
             <section className="role-dashboard">
               <div className="role-welcome panel">
@@ -288,16 +290,14 @@ export default function RoleWorkspace({ user, onLogout }) {
                 </section>
               )}
             </section>
-          ) : user.role === 'FINANCE' && activeId === 'finance' ? (
-            <FinanceView />
-          ) : user.role === 'FINANCE' && activeId === 'reports' ? (
-            <div className="role-workflow">
-              <InstallationChart />
-              <RoleMetrics role={user.role} />
-              <WorkflowTable table={ROLE_TABLES.FINANCE.reports[0]} query={query} />
-            </div>
           ) : activeId === 'customers' ? (
             <CustomerManagement user={user} query={query} />
+          ) : activeId === 'surveys' ? (
+            <SurveyManagement user={user} query={query} />
+          ) : activeId === 'quotations' ? (
+            <QuotationManagement user={user} query={query} />
+          ) : ['inventory', 'installations', 'warranties', 'service', 'finance', 'reports'].includes(activeId) ? (
+            <OperationalWorkspace user={user} section={activeId} />
           ) : (
             <section className="role-workflow">
               <div className="panel role-workflow-heading">
@@ -342,10 +342,12 @@ export default function RoleWorkspace({ user, onLogout }) {
             </section>
           )}
 
-          <section className="panel role-data-note">
-            <h3>Demonstration data</h3>
-            <p>These searchable records and metrics are synthetic examples, not live work assignments or financial/customer records. Live workflow APIs are not connected.</p>
-          </section>
+          {activeId === 'overview' && (
+            <section className="panel role-data-note">
+              <h3>Demonstration data</h3>
+              <p>These summary metrics are explicitly synthetic. Operational screens load live records and enforce role and ownership permissions on the server.</p>
+            </section>
+          )}
         </main>
       </div>
     </div>

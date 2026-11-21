@@ -12,6 +12,9 @@ export function openDatabase(databasePath) {
   database.pragma('busy_timeout = 5000')
   if (databasePath !== ':memory:') {
     database.pragma('journal_mode = WAL')
+    if (process.platform !== 'win32') {
+      fs.chmodSync(databasePath, 0o600)
+    }
   }
   return database
 }

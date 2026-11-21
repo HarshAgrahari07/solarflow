@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { statusClass } from '../data/demoData'
 import { useAuth } from '../auth/useAuth'
 
-const LEAD_STAGES = ['New', 'Contacted', 'Qualified', 'Survey Scheduled', 'Quoted', 'Won', 'Lost']
-const SOLAR_REQUIREMENTS = ['On-Grid System', 'Off-Grid System', 'Solar Panel Set']
+const LEAD_STAGES = ['New', 'Contacted', 'Qualified', 'Survey Pending', 'Quotation', 'Converted', 'Lost']
+const LEAD_SOURCES = ['UNKNOWN', 'WEBSITE', 'REFERRAL', 'PHONE', 'WALK_IN']
+const SOLAR_REQUIREMENTS = ['On-Grid System', 'Off-Grid System']
 
 function blankCustomer(user) {
   return {
@@ -15,6 +16,7 @@ function blankCustomer(user) {
     solarRequirement: '',
     capacityKw: '',
     leadStatus: 'New',
+    leadSource: 'UNKNOWN',
     assignedTo: user.role === 'SALES' ? user.id : '',
     notes: '',
   }
@@ -42,9 +44,12 @@ function CustomerForm({ user, salesUsers, customer, busy, onClose, onSave }) {
         phone: customer.phone || '',
         address: customer.address || '',
         category: customer.category || '',
-        solarRequirement: customer.solarRequirement || '',
+        solarRequirement: SOLAR_REQUIREMENTS.includes(customer.solarRequirement)
+          ? customer.solarRequirement
+          : '',
         capacityKw: customer.capacityKw ?? '',
         leadStatus: customer.leadStatus || 'New',
+        leadSource: customer.leadSource || 'UNKNOWN',
         assignedTo: customer.assignedTo || '',
         notes: customer.notes || '',
       }
@@ -58,8 +63,8 @@ function CustomerForm({ user, salesUsers, customer, busy, onClose, onSave }) {
   async function submit(event) {
     event.preventDefault()
     setError('')
-    const capacityKw = values.capacityKw === '' ? null : Number(values.capacityKw)
-    if (capacityKw !== null && (!Number.isFinite(capacityKw) || capacityKw < 1 || capacityKw > 5)) {
+    const capacityKw = Number(values.capacityKw)
+    if (!Number.isFinite(capacityKw) || capacityKw < 1 || capacityKw > 5) {
       setError('System capacity must be from 1 to 5 kW inclusive.')
       return
     }
@@ -127,13 +132,21 @@ function CustomerForm({ user, salesUsers, customer, busy, onClose, onSave }) {
               </select>
             </label>
             <label className="field">
-              <span>System capacity (optional, 1–5 kW)</span>
-              <input name="capacityKw" type="number" min="1" max="5" step="any" value={values.capacityKw} onChange={change} />
+              <span>System capacity (1–5 kW)</span>
+              <input name="capacityKw" type="number" min="1" max="5" step="any" value={values.capacityKw} onChange={change} required />
             </label>
             <label className="field">
               <span>Lead stage</span>
               <select name="leadStatus" value={values.leadStatus} onChange={change}>
                 {LEAD_STAGES.map((stage) => <option value={stage} key={stage}>{stage}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              <span>Lead source</span>
+              <select name="leadSource" value={values.leadSource} onChange={change}>
+                {LEAD_SOURCES.map((source) => (
+                  <option value={source} key={source}>{source.replaceAll('_', ' ')}</option>
+                ))}
               </select>
             </label>
             {user.role === 'ADMIN' && (
@@ -167,8 +180,11 @@ function CustomerForm({ user, salesUsers, customer, busy, onClose, onSave }) {
   )
 }
 
-function FollowUpDialog({ customer, followUps, loading, busy, error, onClose, onCreate, onComplete }) {
+function FollowUpDialog({ customer, salesUsers, user, followUps, loading, busy, error, onClose, onCreate, onComplete }) {
   const [dueAt, setDueAt] = useState(localDateTimeInOneHour)
+  const [assignedTo, setAssignedTo] = useState(
+    customer.assignedTo || (user.role === 'SALES' ? user.id : ''),
+  )
   const [note, setNote] = useState('')
   const [formError, setFormError] = useState('')
 
@@ -180,7 +196,11 @@ function FollowUpDialog({ customer, followUps, loading, busy, error, onClose, on
       return
     }
     try {
-      await onCreate({ dueAt: new Date(dueAt).toISOString(), note: note.trim() })
+      await onCreate({
+        dueAt: new Date(dueAt).toISOString(),
+        note: note.trim(),
+        assignedTo: assignedTo || undefined,
+      })
       setNote('')
       setDueAt(localDateTimeInOneHour())
     } catch (requestError) {
@@ -211,6 +231,22 @@ function FollowUpDialog({ customer, followUps, loading, busy, error, onClose, on
             <input type="datetime-local" value={dueAt} onChange={(event) => setDueAt(event.target.value)} required />
           </label>
           <label className="field">
+            <span>Responsible Sales executive</span>
+            <select
+              value={assignedTo}
+              onChange={(event) => setAssignedTo(event.target.value)}
+              disabled={user.role === 'SALES'}
+              required
+            >
+              <option value="" disabled>Select a Sales executive</option>
+              {salesUsers.map((salesUser) => (
+                <option value={salesUser.id} key={salesUser.id}>
+                  {salesUser.fullName} ({salesUser.email})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
             <span>Follow-up note</span>
             <textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength="2000" rows="2" required />
           </label>
@@ -231,6 +267,7 @@ function FollowUpDialog({ customer, followUps, loading, busy, error, onClose, on
             <article className="crm-followup-item" key={followUp.id}>
               <div>
                 <strong>{formatDate(followUp.dueAt)}</strong>
+                {followUp.overdue && <span className="crm-overdue">Overdue</span>}
                 <p>{followUp.note}</p>
                 <small>Assigned to {followUp.assignedToName || 'staff'}</small>
               </div>
@@ -249,10 +286,60 @@ function FollowUpDialog({ customer, followUps, loading, busy, error, onClose, on
   )
 }
 
+function CustomerDetailsDialog({ customer, onClose, onEdit, onFollowUps }) {
+  return (
+    <div className="dialog-backdrop" onClick={onClose}>
+      <section
+        className="dialog crm-details-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="customer-details-heading"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="dialog-head">
+          <div>
+            <p className="role-kicker">{customer.isDemo ? 'Synthetic demonstration record' : 'Customer profile'}</p>
+            <h2 id="customer-details-heading">{customer.fullName}</h2>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Close customer details">×</button>
+        </div>
+        <dl className="crm-details-grid">
+          <div><dt>Email</dt><dd>{customer.email || 'Not provided'}</dd></div>
+          <div><dt>Phone</dt><dd>{customer.phone || 'Not provided'}</dd></div>
+          <div><dt>Address</dt><dd>{customer.address || 'Not provided'}</dd></div>
+          <div><dt>Category</dt><dd>{customer.category || 'Not specified'}</dd></div>
+          <div><dt>Connection preference</dt><dd>{customer.solarRequirement || 'Not specified'}</dd></div>
+          <div><dt>Capacity</dt><dd>{customer.capacityKw ? `${customer.capacityKw} kW` : 'Not specified'}</dd></div>
+          <div><dt>Lead stage</dt><dd>{customer.leadStatus}</dd></div>
+          <div><dt>Lead source</dt><dd>{customer.leadSource?.replaceAll('_', ' ') || 'Unknown'}</dd></div>
+          <div><dt>Sales owner</dt><dd>{customer.assignedSalesName || 'Unassigned'}</dd></div>
+          <div><dt>Next follow-up</dt><dd>{formatDate(customer.nextFollowUpAt)}</dd></div>
+          <div className="crm-details-span"><dt>Sales notes</dt><dd>{customer.notes || 'No notes recorded.'}</dd></div>
+        </dl>
+        <div className="dialog-actions">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>
+          <button type="button" className="btn btn-secondary" onClick={onFollowUps}>Follow-ups</button>
+          <button type="button" className="btn btn-primary" onClick={onEdit}>Edit customer</button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
 export default function CustomerManagement({ user, query = '' }) {
   const { request } = useAuth()
   const [customers, setCustomers] = useState([])
   const [salesUsers, setSalesUsers] = useState([])
+  const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 })
+  const [filters, setFilters] = useState({
+    category: '',
+    leadStatus: '',
+    assignedTo: '',
+    recordType: 'real',
+    sortBy: 'updatedAt',
+    sortOrder: 'desc',
+  })
+  const [pageState, setPageState] = useState({ search: query, page: 1 })
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
@@ -265,19 +352,31 @@ export default function CustomerManagement({ user, query = '' }) {
   const [followUpsLoading, setFollowUpsLoading] = useState(false)
   const [followUpError, setFollowUpError] = useState('')
   const [followUpBusy, setFollowUpBusy] = useState(false)
+  const [detailsCustomer, setDetailsCustomer] = useState(null)
+  const requestPage = pageState.search === query ? pageState.page : 1
 
   useEffect(() => {
     let active = true
     const timer = window.setTimeout(() => {
       setLoading(true)
       setLoadError('')
-      const search = query.trim()
-      const path = search ? `/api/customers?search=${encodeURIComponent(search)}` : '/api/customers'
+      const params = new URLSearchParams({
+        ...filters,
+        page: String(requestPage),
+        pageSize: String(pagination.pageSize),
+        search: query.trim(),
+      })
+      if (!params.get('search')) params.delete('search')
+      for (const [key, value] of [...params.entries()]) {
+        if (!value) params.delete(key)
+      }
+      const path = `/api/customers?${params.toString()}`
       request(path)
         .then((response) => {
           if (!active) return
           setCustomers(response.customers)
           setSalesUsers(response.salesUsers)
+          setPagination(response.pagination)
         })
         .catch((error) => {
           if (active) setLoadError(error.message)
@@ -291,9 +390,14 @@ export default function CustomerManagement({ user, query = '' }) {
       active = false
       window.clearTimeout(timer)
     }
-  }, [query, refreshKey, request])
+  }, [filters, pagination.pageSize, query, refreshKey, request, requestPage])
 
   const refresh = useCallback(() => setRefreshKey((key) => key + 1), [])
+  const changeFilter = (name, value) => {
+    setFilters((current) => ({ ...current, [name]: value }))
+    setPageState({ search: query, page: 1 })
+  }
+  const changePage = (page) => setPageState({ search: query, page })
 
   async function saveCustomer(payload) {
     setBusy(true)
@@ -307,6 +411,7 @@ export default function CustomerManagement({ user, query = '' }) {
       })
       setFormOpen(false)
       setEditingCustomer(null)
+      setDetailsCustomer(null)
       refresh()
     } catch (error) {
       setActionError(error.message)
@@ -323,6 +428,7 @@ export default function CustomerManagement({ user, query = '' }) {
   }
 
   function openEdit(customer) {
+    setDetailsCustomer(null)
     setEditingCustomer(customer)
     setActionError('')
     setFormOpen(true)
@@ -340,6 +446,7 @@ export default function CustomerManagement({ user, query = '' }) {
   }
 
   async function openFollowUps(customer) {
+    setDetailsCustomer(null)
     setFollowUpCustomer(customer)
     setFollowUps([])
     setFollowUpError('')
@@ -399,9 +506,65 @@ export default function CustomerManagement({ user, query = '' }) {
         <button type="button" className="btn btn-primary" onClick={openCreate}>Add customer / lead</button>
       </div>
 
+      <div className="panel crm-filter-bar" aria-label="Customer and lead filters">
+        <label className="field">
+          <span>Category</span>
+          <select value={filters.category} onChange={(event) => changeFilter('category', event.target.value)}>
+            <option value="">All categories</option>
+            <option value="Home">Home</option>
+            <option value="Small Factory">Small Factory</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>Lead stage</span>
+          <select value={filters.leadStatus} onChange={(event) => changeFilter('leadStatus', event.target.value)}>
+            <option value="">All stages</option>
+            {LEAD_STAGES.map((stage) => <option value={stage} key={stage}>{stage}</option>)}
+          </select>
+        </label>
+        {user.role === 'ADMIN' && (
+          <label className="field">
+            <span>Sales owner</span>
+            <select value={filters.assignedTo} onChange={(event) => changeFilter('assignedTo', event.target.value)}>
+              <option value="">All owners</option>
+              <option value="unassigned">Unassigned</option>
+              {salesUsers.map((salesUser) => (
+                <option value={salesUser.id} key={salesUser.id}>{salesUser.fullName}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label className="field">
+          <span>Record set</span>
+          <select value={filters.recordType} onChange={(event) => changeFilter('recordType', event.target.value)}>
+            <option value="real">Live customer records</option>
+            <option value="demo">Synthetic demo records</option>
+            <option value="all">All records</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>Sort by</span>
+          <select value={filters.sortBy} onChange={(event) => changeFilter('sortBy', event.target.value)}>
+            <option value="updatedAt">Recently updated</option>
+            <option value="createdAt">Date created</option>
+            <option value="name">Customer name</option>
+            <option value="leadStatus">Lead stage</option>
+            <option value="assignedTo">Sales owner</option>
+            <option value="nextFollowUpAt">Next follow-up</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>Direction</span>
+          <select value={filters.sortOrder} onChange={(event) => changeFilter('sortOrder', event.target.value)}>
+            <option value="desc">Descending</option>
+            <option value="asc">Ascending</option>
+          </select>
+        </label>
+      </div>
+
       <div className="crm-caption">
-        <span>{customers.length} active records shown</span>
-        <span>Customer details are stored in the SunPower SQLite database.</span>
+        <span>{pagination.total} records · {filters.recordType === 'demo' ? 'Synthetic demo data' : filters.recordType === 'all' ? 'Live and demo data' : 'Live customer data'}</span>
+        <span>Page {pagination.page} of {Math.max(pagination.totalPages, 1)}</span>
       </div>
 
       {actionError && <p className="form-error" role="alert">{actionError}</p>}
@@ -439,6 +602,7 @@ export default function CustomerManagement({ user, query = '' }) {
                   <th scope="col">Category / requirement</th>
                   <th scope="col">Capacity</th>
                   <th scope="col">Lead stage</th>
+                  <th scope="col">Source</th>
                   <th scope="col">Sales owner</th>
                   <th scope="col">Next follow-up</th>
                   <th scope="col">Actions</th>
@@ -449,6 +613,7 @@ export default function CustomerManagement({ user, query = '' }) {
                   <tr key={customer.id}>
                     <td>
                       <strong className="cell-title">{customer.fullName}</strong>
+                      {customer.isDemo && <small className="crm-demo-tag">DEMO · synthetic</small>}
                       <small className="crm-subline">{customer.address}</small>
                     </td>
                     <td>
@@ -461,10 +626,15 @@ export default function CustomerManagement({ user, query = '' }) {
                     </td>
                     <td>{customer.capacityKw ? `${customer.capacityKw} kW` : 'Not set'}</td>
                     <td><span className={statusClass(customer.leadStatus)}>{customer.leadStatus}</span></td>
+                    <td>{customer.leadSource?.replaceAll('_', ' ') || 'Unknown'}</td>
                     <td>{customer.assignedSalesName || 'Unassigned'}</td>
-                    <td>{formatDate(customer.nextFollowUpAt)}</td>
+                    <td>
+                      {formatDate(customer.nextFollowUpAt)}
+                      {customer.nextFollowUpOverdue && <small className="crm-overdue">Overdue</small>}
+                    </td>
                     <td>
                       <div className="crm-row-actions">
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setDetailsCustomer(customer)}>View</button>
                         <button type="button" className="btn btn-secondary btn-sm" onClick={() => openEdit(customer)}>Edit</button>
                         <button type="button" className="btn btn-secondary btn-sm" onClick={() => openFollowUps(customer)}>Follow-ups</button>
                         {user.role === 'ADMIN' && !customer.isLinked && (
@@ -476,6 +646,27 @@ export default function CustomerManagement({ user, query = '' }) {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="crm-pagination">
+            <span>Showing {customers.length} of {pagination.total} records</span>
+            <div className="crm-row-actions">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                disabled={loading || pagination.page <= 1}
+                onClick={() => changePage(pagination.page - 1)}
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                disabled={loading || pagination.page >= pagination.totalPages}
+                onClick={() => changePage(pagination.page + 1)}
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -493,6 +684,8 @@ export default function CustomerManagement({ user, query = '' }) {
       {followUpCustomer && (
         <FollowUpDialog
           customer={followUpCustomer}
+          salesUsers={salesUsers}
+          user={user}
           followUps={followUps}
           loading={followUpsLoading}
           busy={followUpBusy}
@@ -500,6 +693,14 @@ export default function CustomerManagement({ user, query = '' }) {
           onClose={() => setFollowUpCustomer(null)}
           onCreate={scheduleFollowUp}
           onComplete={completeFollowUp}
+        />
+      )}
+      {detailsCustomer && (
+        <CustomerDetailsDialog
+          customer={detailsCustomer}
+          onClose={() => setDetailsCustomer(null)}
+          onEdit={() => openEdit(detailsCustomer)}
+          onFollowUps={() => openFollowUps(detailsCustomer)}
         />
       )}
     </section>

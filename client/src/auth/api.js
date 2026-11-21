@@ -8,16 +8,23 @@ export class ApiError extends Error {
 }
 
 export async function apiRequest(path, { method = 'GET', body, headers = {} } = {}) {
+  const isBlob = typeof Blob !== 'undefined' && body instanceof Blob
+  const isArrayBuffer = body instanceof ArrayBuffer
+  const isBinaryBody = isBlob || isArrayBuffer
   let response
   try {
     response = await fetch(path, {
       method,
       credentials: 'include',
       headers: {
-        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(body === undefined ? {} : {
+          'Content-Type': isBinaryBody
+            ? (isBlob && body.type ? body.type : 'application/octet-stream')
+            : 'application/json',
+        }),
         ...headers,
       },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      ...(body === undefined ? {} : { body: isBinaryBody ? body : JSON.stringify(body) }),
     })
   } catch {
     throw new ApiError('Unable to connect to SunPower services. Check the server and try again.')
