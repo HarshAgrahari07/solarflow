@@ -17,7 +17,9 @@ import RoleWorkspace from './components/RoleWorkspace'
 import ServiceTicketDialog from './components/ServiceTicketDialog'
 import Sidebar from './components/Sidebar'
 import StaffAccounts from './components/StaffAccounts'
-import SurveyApprovalDialog from './components/SurveyApprovalDialog'
+import SurveyManagement from './components/SurveyManagement'
+import QuotationManagement from './components/QuotationManagement'
+import OperationalWorkspace from './components/OperationalWorkspace'
 import TopBar from './components/TopBar'
 import { ROLE_WORKSPACES } from './auth/roleAccess'
 import {
@@ -49,7 +51,6 @@ function AdminWorkspace({ user, onLogout }) {
   // Dialog targets
   const [commissioningJob, setCommissioningJob] = useState(null)
   const [dispatchOrder, setDispatchOrder] = useState(null)
-  const [reviewSurvey, setReviewSurvey] = useState(null)
   const [inspectQuote, setInspectQuote] = useState(null)
   const [inspectTicket, setInspectTicket] = useState(null)
 
@@ -187,35 +188,6 @@ function AdminWorkspace({ user, onLogout }) {
     setSidebarOpen(false)
   }
 
-  function handleApproveSurvey(surveyId) {
-    setModulesData((prev) => {
-      const updatedRows = prev.surveys.rows.map((row) => {
-        if (row[0] === surveyId) {
-          const next = [...row]
-          next[4] = 'Approved'
-          return next
-        }
-        return row
-      })
-      return {
-        ...prev,
-        surveys: {
-          ...prev.surveys,
-          rows: updatedRows,
-        },
-      }
-    })
-    addActivity(
-      'surveys',
-      'Roof survey approved',
-      `Survey ${surveyId} verified and approved. Customer quotation is now unlocked.`,
-    )
-    setNotice({
-      text: `Survey ${surveyId} approved! Quotation creation is now unlocked for this customer.`,
-    })
-    setReviewSurvey(null)
-  }
-
   function handleConfirmOrder(quoteId) {
     setModulesData((prev) => {
       const updatedRows = prev.quotations.rows.map((row) => {
@@ -316,7 +288,17 @@ function AdminWorkspace({ user, onLogout }) {
       selectNav('customers')
       return
     }
-    setAction(type)
+    if (type === 'quotation') {
+      selectNav('quotations')
+      return
+    }
+    if (type === 'installation') {
+      selectNav('installations')
+      return
+    }
+    if (type === 'inventory') {
+      selectNav('inventory')
+    }
   }
 
   function handleResolveTicket(ticketId) {
@@ -394,10 +376,16 @@ function AdminWorkspace({ user, onLogout }) {
               query={query}
               onClearSearch={() => setQuery('')}
               onAction={handleDashboardAction}
-              onCommission={setCommissioningJob}
+              onCommission={() => selectNav('installations')}
             />
           ) : activeNav === 'customers' ? (
             <CustomerManagement user={user} query={query} />
+          ) : activeNav === 'surveys' ? (
+            <SurveyManagement user={user} query={query} />
+          ) : activeNav === 'quotations' ? (
+            <QuotationManagement user={user} query={query} />
+          ) : ['inventory', 'installations', 'warranties', 'service', 'finance', 'reports'].includes(activeNav) ? (
+            <OperationalWorkspace user={user} section={activeNav} />
           ) : (
             <ModuleView
               activeId={activeNav}
@@ -411,7 +399,6 @@ function AdminWorkspace({ user, onLogout }) {
               onSaveWorkspace={setWorkspace}
               modules={modulesData}
               onCommission={setCommissioningJob}
-              onReviewSurvey={setReviewSurvey}
               onInspectQuote={setInspectQuote}
               onOpenDispatch={setDispatchOrder}
               onInspectTicket={setInspectTicket}
@@ -422,14 +409,6 @@ function AdminWorkspace({ user, onLogout }) {
 
       {action && (
         <ActionDialog type={action} onClose={() => setAction(null)} onSubmit={handleCreate} />
-      )}
-
-      {reviewSurvey && (
-        <SurveyApprovalDialog
-          survey={reviewSurvey}
-          onClose={() => setReviewSurvey(null)}
-          onApprove={handleApproveSurvey}
-        />
       )}
 
       {inspectQuote && (

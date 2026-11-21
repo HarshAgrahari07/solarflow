@@ -1,104 +1,165 @@
-import { useEffect } from 'react'
-import Icon from './Icon'
+import { useEffect, useState } from 'react'
+import { useAuth } from '../auth/useAuth'
 
-export default function SurveyApprovalDialog({ survey, onClose, onApprove }) {
+export default function SurveyApprovalDialog({ survey, onClose, onReviewed }) {
+  const { request } = useAuth()
+  const [details, setDetails] = useState(survey)
+  const [comments, setComments] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
   useEffect(() => {
-    function onKey(e) {
-      if (e.key === 'Escape') onClose()
+    let active = true
+    request(`/api/surveys/${encodeURIComponent(survey.id)}`)
+      .then((response) => {
+        if (active) setDetails(response.survey)
+      })
+      .catch((requestError) => {
+        if (active) setError(requestError.message)
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => { active = false }
+  }, [request, survey.id])
+
+  useEffect(() => {
+    function onKey(event) {
+      if (event.key === 'Escape' && !saving) onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, saving])
 
-  const isApproved = survey.status === 'Approved'
+  async function review(action) {
+    setError('')
+    if (action !== 'APPROVE' && !comments.trim()) {
+      setError('Add a reason before requesting corrections or rejecting this survey.')
+      return
+    }
+    setSaving(true)
+    try {
+      await request(`/api/surveys/${encodeURIComponent(survey.id)}/review`, {
+        method: 'POST',
+        body: { action, comments: comments.trim() },
+      })
+      await onReviewed()
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
-    <div className="dialog-backdrop" onClick={onClose}>
-      <div className="dialog survey-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+    <div className="dialog-backdrop" onClick={saving ? undefined : onClose}>
+      <section
+        className="dialog survey-approval-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="survey-review-heading"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="dialog-head">
           <div>
-            <h2>Roof Survey Technical Review</h2>
-            <p>Mandatory evaluation: Survey approval is compulsory before any quotation can be created or delivered.</p>
+            <p className="role-kicker">{details.reference || survey.reference}</p>
+            <h2 id="survey-review-heading">Roof survey approval</h2>
+            <p>Review submitted measurements and photographs before deciding.</p>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Close dialog">
-            <Icon name="close" />
-          </button>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Close dialog" disabled={saving}>×</button>
         </div>
 
-        <div className="survey-review-body">
-          <div className="job-summary-card">
-            <div>
-              <strong>{survey.customer}</strong>
-              <small>Survey ID: {survey.id} · Category: {survey.category || 'Home / Small Factory'}</small>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        {loading ? (
+          <div className="survey-loading" role="status"><span className="loading-spinner" /> Loading survey details…</div>
+        ) : (
+          <div className="survey-review-body">
+            <div className="job-summary-card">
+              <div>
+                <strong>{details.customerName}</strong>
+                <small>{details.customerCategory || 'Customer'} · {details.siteAddress}</small>
+                <small>Assigned Surveyor: {details.assignedSurveyorName || 'Not available'}</small>
+              </div>
+              <span className="status">{details.status.replaceAll('_', ' ')}</span>
             </div>
-            <span className={`status ${isApproved ? 'status-completed' : 'status-pending'}`}>
-              Status: {survey.status}
-            </span>
+
+            <div className="survey-summary-grid">
+              <div>
+                <strong>Initial qualification</strong>
+                <span>Shadow-free area: {details.shadowFreeRoofAreaSqm ?? '—'} m²</span>
+                <span>Monthly electricity bill: {details.monthlyElectricityBillInr ?? '—'} INR</span>
+                <span>Grid suitability: {details.gridSuitability || '—'}</span>
+                <span>Customer requirements: {details.customerRequirements || '—'}</span>
+                <span>Preliminary observations: {details.preliminaryObservations || '—'}</span>
+              </div>
+              <div>
+                <strong>Physical roof survey</strong>
+                <span>Roof direction: {details.roofDirection || '—'}</span>
+                <span>Roof tilt: {details.roofTiltDegrees ?? '—'} degrees</span>
+                <span>Cable distance: {details.cableDistanceMeters ?? '—'} m</span>
+                <span>Actual available area: {details.actualAvailableRoofAreaSqm ?? '—'} m²</span>
+                <span>Site condition: {details.siteCondition || '—'}</span>
+                <span>Shade / obstructions: {details.shadeObservations || '—'}</span>
+                <span>Technical notes: {details.technicalNotes || '—'}</span>
+              </div>
+            </div>
+
+            <section className="survey-photo-section" aria-label="Survey photographs">
+              <h3>Survey photographs</h3>
+              {details.photos?.length ? (
+                <div className="survey-photo-grid">
+                  {details.photos.map((photo) => (
+                    <figure key={photo.id}>
+                      <img src={photo.url} alt={`Survey site photograph: ${photo.originalName}`} />
+                      <figcaption>{photo.originalName} · {photo.attachmentType.replaceAll('_', ' ')}</figcaption>
+                    </figure>
+                  ))}
+                </div>
+              ) : <p className="text-muted">No photographs attached.</p>}
+            </section>
+
+            <section className="survey-history">
+              <h3>Approval history</h3>
+              {details.approvalHistory?.length ? (
+                <ol>
+                  {details.approvalHistory.map((entry) => (
+                    <li key={entry.id}>
+                      <strong>{entry.decision.replaceAll('_', ' ')}</strong>
+                      <span>{entry.reviewerName} · {new Date(entry.decidedAt).toLocaleString()}</span>
+                      {entry.comments && <p>{entry.comments}</p>}
+                    </li>
+                  ))}
+                </ol>
+              ) : <p className="text-muted">No review decisions have been recorded.</p>}
+            </section>
+
+            {details.status === 'PENDING_APPROVAL' && (
+              <label className="field">
+                <span>Review comments (required for correction request or rejection)</span>
+                <textarea value={comments} onChange={(event) => setComments(event.target.value)} maxLength="3000" rows="3" />
+              </label>
+            )}
           </div>
-
-          <div className="survey-checklist-grid">
-            <div className="survey-param-card">
-              <span className="param-label">1. Electricity Bill & Needs</span>
-              <strong>{survey.monthlyBill || 'Verified monthly consumption'}</strong>
-              <small className="text-muted">{survey.needs || 'Load reduction & energy security'}</small>
-            </div>
-
-            <div className="survey-param-card">
-              <span className="param-label">2. Shadow-Free Roof Space</span>
-              <strong>{survey.shadowCheck || 'Shadow-free area verified'}</strong>
-              <small className="text-muted">Unobstructed solar irradiance path</small>
-            </div>
-
-            <div className="survey-param-card">
-              <span className="param-label">3. Grid Connection Suitability</span>
-              <strong>{survey.gridSuitability || 'Grid synchronization suitable'}</strong>
-              <small className="text-muted">Voltage stability & phase verified</small>
-            </div>
-
-            <div className="survey-param-card">
-              <span className="param-label">4. Roof Direction & Tilt</span>
-              <strong>{survey.roofOrientation || 'South-facing orientation'}</strong>
-              <small className="text-muted">Optimum sun trajectory alignment</small>
-            </div>
-
-            <div className="survey-param-card">
-              <span className="param-label">5. DC/AC Cable Distance</span>
-              <strong>{survey.cableFeasibility || 'Feasible routing distance'}</strong>
-              <small className="text-muted">Minimal voltage drop to main panel</small>
-            </div>
-
-            <div className="survey-param-card">
-              <span className="param-label">6. System Feasibility</span>
-              <strong className="text-green">1.0 kW to 5.0 kW Feasible</strong>
-              <small className="text-muted">Within SunPower Solutions official scope</small>
-            </div>
-          </div>
-
-          <div className="approval-notice panel sub-panel" style={{ marginTop: '14px' }}>
-            <h4>Approval Gatekeeper Compliance</h4>
-            <p className="text-muted">
-              By approving this technical survey, the customer record is unlocked in the Quotation Manager.
-              No quotation template or price may be issued without this verified survey sign-off.
-            </p>
-          </div>
-        </div>
+        )}
 
         <div className="dialog-actions">
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            Close
-          </button>
-          {!isApproved && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => onApprove(survey.id)}
-            >
-              <Icon name="check" />
-              <span>Approve Survey & Unlock Quotation</span>
-            </button>
+          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>Close</button>
+          {!loading && details.status === 'PENDING_APPROVAL' && (
+            <>
+              <button type="button" className="btn btn-secondary" onClick={() => review('REQUEST_CORRECTIONS')} disabled={saving}>
+                Request corrections
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => review('REJECT')} disabled={saving}>
+                Reject
+              </button>
+              <button type="button" className="btn btn-primary" onClick={() => review('APPROVE')} disabled={saving}>
+                {saving ? 'Saving…' : 'Approve survey'}
+              </button>
+            </>
           )}
         </div>
-      </div>
+      </section>
     </div>
   )
 }

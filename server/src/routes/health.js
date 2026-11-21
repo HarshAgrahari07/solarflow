@@ -5,7 +5,8 @@ export function createHealthRouter(database) {
 
   router.get('/', (request, response) => {
     database.prepare('SELECT 1').get()
-    response.json({ status: 'ok' })
+    database.prepare('SELECT max(version) FROM schema_migrations').get()
+    response.json({ status: 'ok', database: 'ok', readiness: 'ready' })
   })
 
   return router

@@ -28,9 +28,7 @@ export default function CustomerRegistrationPage({ onRegister, onNavigate, busy 
         address: String(formData.get('address') || '').trim(),
         category: String(formData.get('category') || ''),
         solarRequirement: String(formData.get('solarRequirement') || ''),
-        capacityKw: String(formData.get('capacityKw') || '') === ''
-          ? null
-          : Number(formData.get('capacityKw')),
+        capacityKw: Number(formData.get('capacityKw')),
         password,
       })
     } catch (registrationError) {
@@ -56,7 +54,7 @@ export default function CustomerRegistrationPage({ onRegister, onNavigate, busy 
           <div className="auth-heading">
             <p className="auth-eyebrow">Get started</p>
             <h2>Create your account</h2>
-            <p>Profile fields are required. Capacity is optional and must be from 1 to 5 kW when provided. Staff accounts are created by an administrator.</p>
+            <p>Profile fields and a 1–5 kW system capacity are required. Staff accounts are created by an administrator.</p>
           </div>
 
           {error && <p className="auth-error" role="alert">{error}</p>}
@@ -92,12 +90,11 @@ export default function CustomerRegistrationPage({ onRegister, onNavigate, busy 
                 <option value="" disabled>Select a solar requirement</option>
                 <option value="On-Grid System">On-Grid System</option>
                 <option value="Off-Grid System">Off-Grid System</option>
-                <option value="Solar Panel Set">Solar Panel Set</option>
               </select>
             </label>
             <label className="auth-field">
-              <span>Estimated system capacity (optional)</span>
-              <input name="capacityKw" type="number" min="1" max="5" step="any" placeholder="1 to 5 kW" />
+              <span>Estimated system capacity</span>
+              <input name="capacityKw" type="number" min="1" max="5" step="any" placeholder="1 to 5 kW" required />
             </label>
             <label className="auth-field">
               <span>Password</span>

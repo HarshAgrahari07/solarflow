@@ -6,6 +6,10 @@ import { openDatabase } from '../src/database/connection.js'
 import { initializeDatabase } from '../src/database/schema.js'
 import { seedDemoUsers } from '../src/services/demoSeedService.js'
 
+if (process.env.NODE_ENV === 'production') {
+  throw new Error('npm run setup is for local development only.')
+}
+
 const envPath = path.join(SERVER_ROOT, '.env')
 if (!fs.existsSync(envPath)) {
   const envContents = [
@@ -20,12 +24,15 @@ if (!fs.existsSync(envPath)) {
 }
 
 const config = loadConfig()
+if (config.nodeEnv === 'production') {
+  throw new Error('npm run setup is for local development only.')
+}
 const database = openDatabase(config.databasePath)
 try {
   initializeDatabase(database)
   const result = await seedDemoUsers(
     database,
-    path.join(SERVER_ROOT, 'data', 'demo-credentials.txt'),
+    path.join(config.dataDir, 'demo-credentials.txt'),
   )
   console.log(`Local configuration and database are ready at ${config.databasePath}`)
   console.log(`Seeded ${result.count} demo accounts. Local credentials: ${result.credentialsPath}`)

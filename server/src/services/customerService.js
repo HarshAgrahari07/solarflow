@@ -3,6 +3,26 @@ import { findUserByEmail } from '../database/users.js'
 import { HttpError } from '../errors.js'
 import { insertPreparedUser, prepareUser } from './userService.js'
 
+const LEGACY_LEAD_STATUS = {
+  'Survey Pending': 'Survey Scheduled',
+  Quotation: 'Quoted',
+  Converted: 'Won',
+}
+
+const PIPELINE_LEAD_STATUS = {
+  'Survey Scheduled': 'Survey Pending',
+  Quoted: 'Quotation',
+  Won: 'Converted',
+}
+
+function toLegacyLeadStatus(stage) {
+  return LEGACY_LEAD_STATUS[stage] ?? stage
+}
+
+function toPipelineLeadStatus(status) {
+  return PIPELINE_LEAD_STATUS[status] ?? status
+}
+
 const CUSTOMER_SELECT = `
   SELECT
     c.id,
@@ -15,9 +35,15 @@ const CUSTOMER_SELECT = `
     c.solar_requirement,
     c.capacity_kw,
     c.lead_status,
+    lead.stage AS lead_stage,
+    lead.source AS lead_source,
     c.assigned_to,
     c.notes,
     c.is_archived,
+    EXISTS (
+      SELECT 1 FROM demo_seed_records demo
+      WHERE demo.entity_type = 'customers' AND demo.entity_id = c.id
+    ) AS is_demo,
     c.created_at,
     c.updated_at,
     sales.full_name AS assigned_sales_name,
@@ -30,6 +56,7 @@ const CUSTOMER_SELECT = `
     ) AS next_follow_up_at
   FROM customers c
   LEFT JOIN users sales ON sales.id = c.assigned_to
+  LEFT JOIN leads lead ON lead.customer_id = c.id
 `
 
 function customerSelect(actor) {
@@ -51,11 +78,16 @@ function toStaffCustomer(customer) {
     category: customer.category,
     solarRequirement: customer.solar_requirement,
     capacityKw: customer.capacity_kw,
-    leadStatus: customer.lead_status,
+    leadStatus: customer.lead_stage ?? toPipelineLeadStatus(customer.lead_status),
+    leadSource: customer.lead_source ?? 'UNKNOWN',
     assignedTo: customer.assigned_to,
     assignedSalesName: customer.assigned_sales_name ?? null,
     notes: customer.notes,
     nextFollowUpAt: customer.next_follow_up_at ?? null,
+    nextFollowUpOverdue: Boolean(
+      customer.next_follow_up_at && Date.parse(customer.next_follow_up_at) < Date.now(),
+    ),
+    isDemo: Boolean(customer.is_demo),
     isArchived: Boolean(customer.is_archived),
     createdAt: customer.created_at,
     updatedAt: customer.updated_at,
@@ -101,14 +133,13 @@ function assertUniqueError(error) {
   throw error
 }
 
-function validateAssignment(database, assignedTo, { allowAdmin = false } = {}) {
+function validateAssignment(database, assignedTo) {
   if (assignedTo === null || assignedTo === undefined) return
 
   const assignee = database.prepare(`
     SELECT id, role, is_active FROM users WHERE id = ?
   `).get(assignedTo)
-  const permittedRoles = allowAdmin ? ['ADMIN', 'SALES'] : ['SALES']
-  if (!assignee || !assignee.is_active || !permittedRoles.includes(assignee.role)) {
+  if (!assignee || !assignee.is_active || assignee.role !== 'SALES') {
     throw new HttpError(400, 'INVALID_SALES_ASSIGNMENT', 'Assignment must reference an active Sales account')
   }
 }
@@ -143,7 +174,7 @@ function createCustomerRecord(database, fields, { linkedUserId = null, assignedT
     fields.category ?? null,
     fields.solarRequirement ?? null,
     fields.capacityKw ?? null,
-    fields.leadStatus || 'New',
+    toLegacyLeadStatus(fields.leadStatus || 'New'),
     assignedTo ?? fields.assignedTo ?? null,
     fields.notes?.trim() || '',
   )
@@ -163,7 +194,23 @@ export function listSalesUsers(database) {
   }))
 }
 
-export function listCustomers(database, actor, { search = '', leadStatus, includeArchived = false } = {}) {
+const CUSTOMER_SORT_COLUMNS = {
+  createdAt: 'c.created_at',
+  updatedAt: 'c.updated_at',
+  name: 'c.full_name COLLATE NOCASE',
+  leadStatus: 'lead.stage',
+  assignedTo: 'lead.assigned_to',
+  nextFollowUpAt: 'next_follow_up_at',
+}
+
+function customerListConditions(actor, {
+  search = '',
+  leadStatus,
+  category,
+  assignedTo,
+  recordType = 'real',
+  includeArchived = false,
+} = {}) {
   const conditions = []
   const values = []
 
@@ -171,31 +218,92 @@ export function listCustomers(database, actor, { search = '', leadStatus, includ
     conditions.push('c.is_archived = 0')
   }
   if (actor.role === 'SALES') {
-    conditions.push('(c.assigned_to IS NULL OR c.assigned_to = ?)')
+    conditions.push('(lead.assigned_to IS NULL OR lead.assigned_to = ?)')
     values.push(actor.id)
   }
   if (leadStatus) {
-    conditions.push('c.lead_status = ?')
+    conditions.push('lead.stage = ?')
     values.push(leadStatus)
+  }
+  if (category) {
+    conditions.push('c.category = ?')
+    values.push(category)
+  }
+  if (assignedTo === 'unassigned') {
+    conditions.push('lead.assigned_to IS NULL')
+  } else if (assignedTo) {
+    conditions.push('lead.assigned_to = ?')
+    values.push(assignedTo)
+  }
+  if (recordType === 'demo') {
+    conditions.push(`EXISTS (
+      SELECT 1 FROM demo_seed_records demo
+      WHERE demo.entity_type = 'customers' AND demo.entity_id = c.id
+    )`)
+  } else if (recordType === 'real') {
+    conditions.push(`NOT EXISTS (
+      SELECT 1 FROM demo_seed_records demo
+      WHERE demo.entity_type = 'customers' AND demo.entity_id = c.id
+    )`)
   }
   if (search.trim()) {
     conditions.push(`instr(lower(
       coalesce(c.full_name, '') || ' ' || coalesce(c.email, '') || ' ' ||
       coalesce(c.phone, '') || ' ' || coalesce(c.address, '') || ' ' ||
-      coalesce(c.category, '') || ' ' || coalesce(c.lead_status, '')
+      coalesce(c.category, '') || ' ' || coalesce(lead.stage, '') || ' ' ||
+      coalesce(lead.source, '') || ' ' || coalesce(sales.full_name, '')
     ), lower(?)) > 0`)
     values.push(search.trim().slice(0, 100))
   }
 
-  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
-  const selectValues = actor.role === 'SALES' ? [actor.id, ...values] : values
+  return {
+    where: conditions.length ? `WHERE ${conditions.join(' AND ')}` : '',
+    values,
+  }
+}
+
+export function listCustomersPage(database, actor, options = {}) {
+  const {
+    page = 1,
+    pageSize = 20,
+    sortBy = 'updatedAt',
+    sortOrder = 'desc',
+  } = options
+  const { where, values } = customerListConditions(actor, options)
+  const from = `
+    FROM customers c
+    LEFT JOIN leads lead ON lead.customer_id = c.id
+    LEFT JOIN users sales ON sales.id = c.assigned_to
+  `
+  const total = database.prepare(`
+    SELECT COUNT(DISTINCT c.id) AS total ${from} ${where}
+  `).get(...values).total
+  const sortColumn = CUSTOMER_SORT_COLUMNS[sortBy] ?? CUSTOMER_SORT_COLUMNS.updatedAt
+  const direction = sortOrder === 'asc' ? 'ASC' : 'DESC'
+  const offset = (page - 1) * pageSize
+  const selectValues = actor.role === 'SALES'
+    ? [actor.id, ...values, pageSize, offset]
+    : [...values, pageSize, offset]
   const customers = database.prepare(`
     ${customerSelect(actor)}
     ${where}
-    ORDER BY c.updated_at DESC, c.full_name COLLATE NOCASE
+    ORDER BY ${sortColumn} ${direction}, c.id
+    LIMIT ? OFFSET ?
   `).all(...selectValues)
 
-  return customers.map(toStaffCustomer)
+  return {
+    customers: customers.map(toStaffCustomer),
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  }
+}
+
+export function listCustomers(database, actor, options = {}) {
+  return listCustomersPage(database, actor, options).customers
 }
 
 export function getCustomerForActor(database, customerId, actor) {
@@ -226,7 +334,20 @@ export function createCustomer(database, fields, actor) {
   validateAssignment(database, assignedTo)
 
   try {
-    return toStaffCustomer(createCustomerRecord(database, fields, { assignedTo }))
+    return database.transaction(() => {
+      const customer = createCustomerRecord(database, fields, { assignedTo })
+      database.prepare(`
+        UPDATE leads
+        SET stage = ?, source = ?, created_by = ?
+        WHERE customer_id = ?
+      `).run(
+        fields.leadStatus || 'New',
+        fields.leadSource || 'UNKNOWN',
+        actor.id,
+        customer.id,
+      )
+      return toStaffCustomer(findCustomerById(database, customer.id))
+    })()
   } catch (error) {
     assertUniqueError(error)
   }
@@ -281,7 +402,8 @@ export function updateCustomer(database, customerId, fields, actor) {
     category: fields.category ?? customer.category,
     solarRequirement: fields.solarRequirement ?? customer.solar_requirement,
     capacityKw: fields.capacityKw === undefined ? customer.capacity_kw : fields.capacityKw,
-    leadStatus: fields.leadStatus ?? customer.lead_status,
+    leadStatus: fields.leadStatus ?? customer.lead_stage ?? toPipelineLeadStatus(customer.lead_status),
+    leadSource: fields.leadSource ?? customer.lead_source ?? 'UNKNOWN',
     assignedTo: actor.role === 'SALES' ? actor.id : assignedTo,
     notes: fields.notes ?? customer.notes,
   }
@@ -303,11 +425,16 @@ export function updateCustomer(database, customerId, fields, actor) {
         next.category,
         next.solarRequirement,
         next.capacityKw,
-        next.leadStatus,
+        toLegacyLeadStatus(next.leadStatus),
         next.assignedTo,
         next.notes.trim(),
         customerId,
       )
+      database.prepare(`
+        UPDATE leads
+        SET stage = ?, source = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        WHERE customer_id = ?
+      `).run(next.leadStatus, next.leadSource, customerId)
       const updatedCustomer = findCustomerById(database, customerId, actor)
       return actor.role === 'CUSTOMER' ? toPortalCustomer(updatedCustomer) : toStaffCustomer(updatedCustomer)
     })()
@@ -342,12 +469,32 @@ export async function registerCustomerAccount(database, fields) {
     return database.transaction(() => {
       const user = insertPreparedUser(database, preparedUser)
       const existingCustomer = findCustomerByEmail(database, preparedUser.email)
-      if (existingCustomer?.linked_user_id || existingCustomer?.is_archived) {
+      if (
+        existingCustomer?.is_archived
+        || (existingCustomer?.linked_user_id && existingCustomer.linked_user_id !== user.id)
+      ) {
         throw new HttpError(409, 'CUSTOMER_EMAIL_ALREADY_EXISTS', 'A customer with this email already exists')
       }
 
       let customer
-      if (existingCustomer) {
+      if (existingCustomer?.linked_user_id === user.id) {
+        database.prepare(`
+          UPDATE customers
+          SET full_name = ?, phone = ?, address = ?, category = ?,
+              solar_requirement = ?, capacity_kw = ?,
+              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+          WHERE id = ?
+        `).run(
+          fields.fullName.trim(),
+          fields.phone.trim(),
+          fields.address.trim(),
+          fields.category,
+          fields.solarRequirement,
+          fields.capacityKw ?? null,
+          existingCustomer.id,
+        )
+        customer = findCustomerById(database, existingCustomer.id)
+      } else if (existingCustomer) {
         database.prepare(`
           UPDATE customers
           SET linked_user_id = ?, full_name = ?, phone = ?, address = ?, category = ?,
@@ -368,6 +515,11 @@ export async function registerCustomerAccount(database, fields) {
       } else {
         customer = createCustomerRecord(database, fields, { linkedUserId: user.id })
       }
+
+      database.prepare(`
+        UPDATE leads SET source = 'WEBSITE'
+        WHERE customer_id = ? AND source = 'UNKNOWN'
+      `).run(customer.id)
 
       return { user, customer: toPortalCustomer(customer) }
     })()
@@ -399,6 +551,8 @@ export function listFollowUps(database, customerId, actor) {
 }
 
 function toFollowUp(followUp) {
+  const dueAt = new Date(followUp.due_at).getTime()
+  const completed = Boolean(followUp.completed_at)
   return {
     id: followUp.id,
     customerId: followUp.customer_id,
@@ -409,7 +563,8 @@ function toFollowUp(followUp) {
     dueAt: followUp.due_at,
     note: followUp.note,
     completedAt: followUp.completed_at,
-    completed: Boolean(followUp.completed_at),
+    completed,
+    overdue: !completed && dueAt < Date.now(),
     createdAt: followUp.created_at,
     updatedAt: followUp.updated_at,
   }
@@ -422,11 +577,16 @@ export function createFollowUp(database, customerId, fields, actor) {
   }
   assertCanManage(actor, customer)
 
-  const assignedTo = fields.assignedTo ?? customer.assigned_to ?? actor.id
+  const assignedTo = fields.assignedTo
+    ?? customer.assigned_to
+    ?? (actor.role === 'SALES' ? actor.id : null)
   if (actor.role === 'SALES' && assignedTo !== actor.id) {
     throw new HttpError(403, 'FORBIDDEN', 'Sales users may only assign follow-ups to themselves')
   }
-  validateAssignment(database, assignedTo, { allowAdmin: true })
+  if (!assignedTo) {
+    throw new HttpError(400, 'SALES_ASSIGNMENT_REQUIRED', 'Select a Sales executive for this follow-up')
+  }
+  validateAssignment(database, assignedTo)
 
   const id = randomUUID()
   return database.transaction(() => {
@@ -458,16 +618,22 @@ export function updateFollowUp(database, customerId, followUpId, fields, actor) 
   if (actor.role === 'SALES' && followUp.assigned_to !== actor.id) {
     throw new HttpError(403, 'FORBIDDEN', 'You can only update follow-ups assigned to you')
   }
+  const assignedTo = fields.assignedTo ?? followUp.assigned_to
+  if (actor.role === 'SALES' && assignedTo !== actor.id) {
+    throw new HttpError(403, 'FORBIDDEN', 'Sales users may only assign follow-ups to themselves')
+  }
+  validateAssignment(database, assignedTo)
 
   const completedAt = fields.completed === undefined
     ? followUp.completed_at
     : fields.completed ? new Date().toISOString() : null
   database.prepare(`
     UPDATE customer_follow_ups
-    SET due_at = ?, note = ?, completed_at = ?,
+    SET assigned_to = ?, due_at = ?, note = ?, completed_at = ?,
         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     WHERE id = ?
   `).run(
+    assignedTo,
     fields.dueAt ? new Date(fields.dueAt).toISOString() : followUp.due_at,
     fields.note ?? followUp.note,
     completedAt,
