@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { MODULES, matchesQuery, statusClass } from '../data/demoData'
+import { MODULES, calculateResidentialAverage, matchesQuery, statusClass } from '../data/demoData'
 import DemoBanner from './DemoBanner'
+import FinanceView from './FinanceView'
 import InstallationChart from './InstallationChart'
 import InstallationsTable from './InstallationsTable'
 
@@ -11,17 +12,34 @@ const SESSION_TYPE = {
 }
 
 function sessionCells(record) {
-  if (record.type === 'customer') return [record.name, record.city, record.phone, 'New lead']
+  if (record.type === 'customer') {
+    return [record.name, record.category || 'Home', record.city, record.phone, 'New lead']
+  }
   if (record.type === 'quotation') {
-    return [record.quoteId, record.customer, record.capacity, record.amount, 'Draft']
+    return [
+      record.quoteId,
+      record.customer,
+      record.surveyRef || 'Associated Approved Survey',
+      record.packageType || 'On-Grid System',
+      record.capacity,
+      record.amount,
+      record.status || 'Draft (Pending Delivery)',
+    ]
   }
   if (record.type === 'inventory') {
-    return [record.sku, record.item, record.quantity, record.warehouse, 'In stock']
+    return [
+      record.sku,
+      record.item,
+      record.quantity,
+      record.warehouse,
+      record.serialTracking || 'Standard item',
+    ]
   }
   return []
 }
 
-function RecordTable({ columns, rows }) {
+function RecordTable({ columns, rows, onRowAction }) {
+  const hasAction = Boolean(onRowAction)
   return (
     <div className="table-wrap">
       <table className="data-table">
@@ -32,6 +50,7 @@ function RecordTable({ columns, rows }) {
                 {column}
               </th>
             ))}
+            {hasAction && <th scope="col">Action</th>}
           </tr>
         </thead>
         <tbody>
@@ -45,6 +64,7 @@ function RecordTable({ columns, rows }) {
                   {index === 0 && row.isNew ? <span className="mini-pill">Added now</span> : null}
                 </td>
               ))}
+              {hasAction && <td>{onRowAction(row)}</td>}
             </tr>
           ))}
         </tbody>
@@ -63,11 +83,17 @@ export default function ModuleView({
   sessionRecords,
   workspace,
   onSaveWorkspace,
+  modules = MODULES,
+  onCommission,
+  onReviewSurvey,
+  onInspectQuote,
+  onOpenDispatch,
+  onInspectTicket,
 }) {
   const [notesById, setNotesById] = useState({})
   const [settingsMessage, setSettingsMessage] = useState(null)
 
-  const module = MODULES[activeId]
+  const module = modules[activeId]
   const notes = notesById[activeId] || []
 
   function recordNote(label) {
@@ -103,7 +129,22 @@ export default function ModuleView({
     })
   }
 
+  if (activeId === 'finance') {
+    return <FinanceView />
+  }
+
   if (activeId === 'reports') {
+    const residentialAvgKw = calculateResidentialAverage(installations)
+    const residentialCount = (installations || []).filter((item) => {
+      const text = String(item.customer || '').toLowerCase()
+      const cat = String(item.category || '').toLowerCase()
+      return text.includes('(home)') || text.includes('home') || cat === 'home'
+    }).length
+
+    const completedCount = (installations || []).filter((item) => item.status === 'Completed').length
+    const totalJobs = (installations || []).length
+    const completionRate = totalJobs > 0 ? Math.round((completedCount / totalJobs) * 100) : 0
+
     return (
       <div className="dashboard">
         <DemoBanner />
@@ -111,18 +152,18 @@ export default function ModuleView({
         <section className="insight-grid" aria-label="Demonstration insights">
           <article className="stat-card">
             <p className="stat-label">Completion rate</p>
-            <p className="stat-value">61%</p>
-            <p className="stat-note">86 of 141 demo sites are commissioned</p>
+            <p className="stat-value">{completionRate}%</p>
+            <p className="stat-note">{completedCount} of {totalJobs} active demonstration jobs completed</p>
           </article>
           <article className="stat-card">
             <p className="stat-label">Average residential system</p>
-            <p className="stat-value">5.4 kW</p>
-            <p className="stat-note">Sample figure from household jobs</p>
+            <p className="stat-value">{residentialAvgKw} kW</p>
+            <p className="stat-note">Calculated from {residentialCount} displayed residential records (1–5 kW)</p>
           </article>
           <article className="stat-card">
-            <p className="stat-label">Quote approval rate</p>
-            <p className="stat-value">72%</p>
-            <p className="stat-note">Demo pipeline for the current month</p>
+            <p className="stat-label">Monthly pace benchmark</p>
+            <p className="stat-value">~40</p>
+            <p className="stat-note">Official business target scale (15 technicians)</p>
           </article>
         </section>
         <section className="panel">
@@ -205,8 +246,97 @@ export default function ModuleView({
             {module.actionLabel}
           </button>
         </div>
-        <InstallationsTable rows={installations} query={query} onClear={onClearSearch} />
+        <InstallationsTable
+          rows={installations}
+          query={query}
+          onClear={onClearSearch}
+          onCommission={onCommission}
+        />
       </div>
+    )
+  }
+
+  let rowActionRenderer = null
+  if (activeId === 'surveys' && onReviewSurvey) {
+    rowActionRenderer = (row) => (
+      <button
+        type="button"
+        className="btn btn-secondary btn-sm"
+        onClick={() =>
+          onReviewSurvey({
+            id: row.cells[0],
+            customer: row.cells[1],
+            gridSuitability: row.cells[2],
+            roofOrientation: row.cells[3],
+            status: row.cells[4],
+          })
+        }
+      >
+        {row.cells[4] === 'Approved' ? 'Inspect Survey' : 'Review & Approve'}
+      </button>
+    )
+  } else if (activeId === 'quotations' && onInspectQuote) {
+    rowActionRenderer = (row) => (
+      <button
+        type="button"
+        className="btn btn-secondary btn-sm"
+        onClick={() =>
+          onInspectQuote({
+            quoteId: row.cells[0],
+            customer: row.cells[1],
+            surveyRef: row.cells[2],
+            packageType: row.cells[3],
+            capacity: row.cells[4],
+            amount: row.cells[5],
+            status: row.cells[6],
+          })
+        }
+      >
+        View BOM / Order
+      </button>
+    )
+  } else if (activeId === 'inventory' && onOpenDispatch) {
+    rowActionRenderer = (row) => {
+      const isSerialTracked = String(row.cells[4] || '').toLowerCase().includes('serial')
+      return (
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          onClick={() =>
+            onOpenDispatch({
+              id: row.cells[0],
+              sku: row.cells[0],
+              item: row.cells[1],
+              quantity: row.cells[2],
+              warehouse: row.cells[3],
+              customer: 'Order Picking / Customer Link',
+              capacity: '3.0 kW',
+              packageType: 'On-Grid System',
+            })
+          }
+        >
+          {isSerialTracked ? 'Scan & Dispatch' : 'Check Stock'}
+        </button>
+      )
+    }
+  } else if (activeId === 'service' && onInspectTicket) {
+    rowActionRenderer = (row) => (
+      <button
+        type="button"
+        className="btn btn-secondary btn-sm"
+        onClick={() =>
+          onInspectTicket({
+            id: row.cells[0],
+            customer: row.cells[1],
+            serialNo: row.cells[2],
+            issue: row.cells[3],
+            coverage: row.cells[4],
+            status: row.cells[5],
+          })
+        }
+      >
+        Warranty & Resolve
+      </button>
     )
   }
 
@@ -245,7 +375,11 @@ export default function ModuleView({
             </button>
           </div>
         ) : (
-          <RecordTable columns={module.columns} rows={visibleRows} />
+          <RecordTable
+            columns={module.columns}
+            rows={visibleRows}
+            onRowAction={rowActionRenderer}
+          />
         )}
       </section>
     </div>

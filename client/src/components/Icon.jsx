@@ -80,6 +80,15 @@ export default function Icon({ name, className = 'icon' }) {
           <path d="M14.5 6.5a3.2 3.2 0 0 0-4.4 4.4L4.5 16.5l3 3 5.6-5.6a3.2 3.2 0 0 0 4.4-4.4l-2.2 2.2-2.1-2.1z" />
         </svg>
       )
+    case 'finance':
+      return (
+        <svg {...props}>
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <path d="M3 10h18" />
+          <path d="M7 15h2" />
+          <path d="M15 15h2" />
+        </svg>
+      )
     case 'reports':
       return (
         <svg {...props}>
@@ -118,6 +127,47 @@ export default function Icon({ name, className = 'icon' }) {
       return (
         <svg {...props}>
           <path d="m6 6 12 12M18 6 6 18" />
+        </svg>
+      )
+    case 'check':
+      return (
+        <svg {...props}>
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      )
+    case 'barcode':
+      return (
+        <svg {...props}>
+          <path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14M21 5v14" />
+        </svg>
+      )
+    case 'signature':
+      return (
+        <svg {...props}>
+          <path d="M3 17c3-2 6-2 8 0s5 2 8-1" />
+          <path d="M14 6l4 4-9 9H5v-4L14 6z" />
+        </svg>
+      )
+    case 'camera':
+      return (
+        <svg {...props}>
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+          <circle cx="12" cy="13" r="4" />
+        </svg>
+      )
+    case 'clock':
+      return (
+        <svg {...props}>
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+      )
+    case 'alert':
+      return (
+        <svg {...props}>
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
       )
     default:

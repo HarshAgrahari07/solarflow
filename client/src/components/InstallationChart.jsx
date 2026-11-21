@@ -5,15 +5,17 @@ export default function InstallationChart() {
   const radius = 62
   const circumference = 2 * Math.PI * radius
   const gap = 4
-  let cursor = 0
 
-  const segments = INSTALLATION_MIX.map((item) => {
-    const full = (item.value / total) * circumference
-    const length = Math.max(full - gap, 0)
-    const segment = { ...item, length, offset: cursor }
-    cursor += full
-    return segment
-  })
+  const { segments } = INSTALLATION_MIX.reduce(
+    (acc, item) => {
+      const full = (item.value / total) * circumference
+      const length = Math.max(full - gap, 0)
+      acc.segments.push({ ...item, length, offset: acc.offset })
+      acc.offset += full
+      return acc
+    },
+    { segments: [], offset: 0 },
+  )
 
   const summary = INSTALLATION_MIX.map((item) => `${item.value} ${item.label.toLowerCase()}`).join(', ')
 
@@ -21,10 +23,10 @@ export default function InstallationChart() {
     <section className="panel" aria-labelledby="install-overview-title">
       <div className="section-head">
         <div>
-          <h2 id="install-overview-title">Installation overview</h2>
-          <p>Demonstration mix for every SolarFlow site in this preview. Recent jobs are listed separately below.</p>
+          <h2 id="install-overview-title">Installation status breakdown (Synthetic preview)</h2>
+          <p>The company benchmark is approximately 40 rooftop projects per month. The 26 completed + 8 ongoing + 6 pending distribution is illustrative synthetic monthly workload data, not 40 verified project records.</p>
         </div>
-        <span className="count-pill">{total} demo sites</span>
+        <span className="count-pill">{total} demo projects</span>
       </div>
 
       <div className="chart-layout">
@@ -32,7 +34,7 @@ export default function InstallationChart() {
           className="donut"
           viewBox="0 0 180 180"
           role="img"
-          aria-label={`Installation overview. ${summary}. Total ${total} demonstration sites.`}
+          aria-label={`Installation status breakdown. ${summary}. Total ${total} illustrative demo jobs.`}
         >
           <circle cx="90" cy="90" r={radius} fill="none" stroke="#e6efe9" strokeWidth="16" />
           {segments.map((segment) => (
@@ -53,7 +55,7 @@ export default function InstallationChart() {
             {total}
           </text>
           <text x="90" y="108" textAnchor="middle" fill="#5e7067" stroke="none" fontSize="12">
-            Demo sites
+            Demo workload
           </text>
         </svg>
 

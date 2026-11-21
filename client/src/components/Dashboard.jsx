@@ -5,13 +5,18 @@ import InstallationsTable from './InstallationsTable'
 import QuickActions from './QuickActions'
 import StatCards from './StatCards'
 
-export default function Dashboard({ installations, activities, query, onClearSearch, onAction }) {
+export default function Dashboard({ installations, activities, query, onClearSearch, onAction, onCommission }) {
   return (
     <div className="dashboard">
       <DemoBanner />
       <StatCards />
       <InstallationChart />
-      <InstallationsTable rows={installations} query={query} onClear={onClearSearch} />
+      <InstallationsTable
+        rows={installations}
+        query={query}
+        onClear={onClearSearch}
+        onCommission={onCommission}
+      />
       <div className="split">
         <ActivityFeed activities={activities} />
         <QuickActions onAction={onAction} />
