@@ -1,7 +1,7 @@
 import { NAV_ITEMS } from '../data/demoData'
 import Icon from './Icon'
 
-export default function Sidebar({ activeId, open, onSelect, onClose }) {
+export default function Sidebar({ activeId, items = NAV_ITEMS, open, onSelect, onClose }) {
   return (
     <aside className={`sidebar${open ? ' is-open' : ''}`} aria-label="Primary">
       <div className="brand">
@@ -13,8 +13,8 @@ export default function Sidebar({ activeId, open, onSelect, onClose }) {
           </svg>
         </span>
         <span className="brand-copy">
-          <strong>SolarFlow</strong>
-          <span>Installation operations</span>
+          <strong>SunPower Solutions</strong>
+          <span>Solar Installation Management</span>
         </span>
         <button type="button" className="icon-button sidebar-close" onClick={onClose} aria-label="Close menu">
           <Icon name="close" />
@@ -22,7 +22,7 @@ export default function Sidebar({ activeId, open, onSelect, onClose }) {
       </div>
 
       <nav className="nav-list">
-        {NAV_ITEMS.map((item) => (
+        {items.map((item) => (
           <button
             key={item.id}
             type="button"
@@ -36,7 +36,7 @@ export default function Sidebar({ activeId, open, onSelect, onClose }) {
         ))}
       </nav>
 
-      <p className="sidebar-foot">Hackathon preview · Demonstration workspace</p>
+      <p className="sidebar-foot">Staff access is role-limited. Workflow records are demonstration data until APIs are connected.</p>
     </aside>
   )
 }

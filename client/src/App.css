@@ -893,3 +893,230 @@ select:focus-visible {
   }
 
 }
+
+/* Phase 2: Core Workflows & Finance Styling */
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+.pill-btn {
+  background: white;
+  border: 1px solid var(--line);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.pill-btn.is-active {
+  background: var(--green-800);
+  color: white;
+  border-color: var(--green-800);
+}
+
+.timeframe-toggle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.finance-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.kpi-card {
+  background: var(--green-50);
+  border: 1px solid #d7ebdf;
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kpi-card.highlight {
+  background: #e7f6ee;
+  border-color: #8fd6a8;
+}
+
+.kpi-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.kpi-value {
+  font-size: 22px;
+  font-weight: 750;
+  line-height: 1.1;
+}
+
+.text-green {
+  color: #0f6b3c;
+}
+
+.text-amber {
+  color: #8a6410;
+}
+
+.profit-badge {
+  background: #e7f6ee;
+  color: #0f6b3c;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+}
+
+.advance-tag {
+  background: #fbf6ea;
+  color: #8a6410;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 650;
+}
+
+.table-total-row {
+  background: #f4fbf7;
+  border-top: 2px solid #b7d8c4;
+}
+
+.tab-bar {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid var(--line);
+  padding-bottom: 4px;
+  overflow-x: auto;
+}
+
+.tab-btn {
+  background: transparent;
+  border: 0;
+  padding: 8px 16px;
+  border-radius: 8px 8px 0 0;
+  font-weight: 650;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.tab-btn.is-active {
+  color: var(--green-900);
+  background: white;
+  box-shadow: 0 -2px 0 var(--green-700);
+}
+
+.signature-canvas {
+  width: 100%;
+  height: 100px;
+  background: #ffffff;
+  border: 2px dashed #b7d8c4;
+  border-radius: 12px;
+  cursor: crosshair;
+}
+
+.photo-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.photo-thumb {
+  background: var(--green-50);
+  border: 1px solid #d7ebdf;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.survey-checklist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.survey-param-card {
+  background: var(--green-50);
+  border: 1px solid #d7ebdf;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.param-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.billing-calculation-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.billing-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--line);
+  font-size: 14px;
+}
+
+.billing-item.total {
+  border-top: 2px solid var(--line);
+  border-bottom: none;
+  padding-top: 10px;
+  font-size: 16px;
+}
+
+.job-summary-card {
+  background: var(--green-50);
+  border: 1px solid #d7ebdf;
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.sub-panel {
+  background: #fbfdfc;
+  border: 1px solid #e3ebe6;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.mini-pill-green {
+  background: #e7f6ee;
+  color: #0f6b3c;
+}
+
+.mini-pill-amber {
+  background: #fbf6ea;
+  color: #8a6410;
+}

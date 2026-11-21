@@ -1,13 +1,27 @@
 import { useState } from 'react'
-import { DEMO_USER, NOTIFICATIONS } from '../data/demoData'
+import { getRoleLabel } from '../auth/roleAccess'
+import { NOTIFICATIONS } from '../data/demoData'
 import Icon from './Icon'
 
-export default function TopBar({ heading, query, onQueryChange, onMenu, alertsEnabled }) {
+export default function TopBar({
+  heading,
+  user,
+  query,
+  onQueryChange,
+  onMenu,
+  onLogout,
+  alertsEnabled,
+  showSearch = true,
+  showNotifications = true,
+}) {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [readIds, setReadIds] = useState([])
+  const [logoutError, setLogoutError] = useState('')
 
   const unread = alertsEnabled ? NOTIFICATIONS.filter((item) => !readIds.includes(item.id)).length : 0
+  const userName = user?.fullName || 'SunPower user'
+  const roleLabel = getRoleLabel(user?.role)
 
   function toggleNotifications() {
     setProfileOpen(false)
@@ -23,6 +37,21 @@ export default function TopBar({ heading, query, onQueryChange, onMenu, alertsEn
     setReadIds((current) => (current.includes(id) ? current : [...current, id]))
   }
 
+  async function handleLogout() {
+    setLogoutError('')
+    try {
+      await onLogout()
+    } catch (error) {
+      setLogoutError(error.message)
+    }
+  }
+
+  const initials = userName
+    .split(' ')
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join('')
+
   return (
     <header className="topbar">
       <button type="button" className="icon-button menu-button" onClick={onMenu} aria-label="Open menu">
@@ -30,23 +59,25 @@ export default function TopBar({ heading, query, onQueryChange, onMenu, alertsEn
       </button>
 
       <div className="heading-block">
-        <p className="eyebrow">SolarFlow</p>
+        <p className="eyebrow">SunPower Solutions</p>
         <h1>{heading}</h1>
       </div>
 
-      <label className="search">
-        <Icon name="search" />
-        <span className="sr-only">Search installations and records</span>
-        <input
-          type="search"
-          value={query}
-          placeholder="Search customers, sites, technicians"
-          onChange={(event) => onQueryChange(event.target.value)}
-        />
-      </label>
+      {showSearch && (
+        <label className="search">
+          <Icon name="search" />
+          <span className="sr-only">Search installations and records</span>
+          <input
+            type="search"
+            value={query}
+            placeholder="Search customers, sites, technicians"
+            onChange={(event) => onQueryChange(event.target.value)}
+          />
+        </label>
+      )}
 
       <div className="top-actions">
-        <div className="pop-anchor">
+        {showNotifications && <div className="pop-anchor">
           <button
             type="button"
             className="icon-button"
@@ -85,26 +116,30 @@ export default function TopBar({ heading, query, onQueryChange, onMenu, alertsEn
               )}
             </div>
           )}
-        </div>
+        </div>}
 
         <div className="pop-anchor">
           <button type="button" className="profile" aria-expanded={profileOpen} onClick={toggleProfile}>
-            <span className="avatar" aria-hidden="true">AM</span>
+            <span className="avatar" aria-hidden="true">{initials}</span>
             <span className="profile-copy">
-              <strong>{DEMO_USER.name}</strong>
-              <small>{DEMO_USER.title}</small>
+              <strong>{userName}</strong>
+              <small>{roleLabel}</small>
             </span>
           </button>
           {profileOpen && (
             <div className="pop-panel profile-panel" role="region" aria-label="Signed-in user">
-              <strong>{DEMO_USER.name}</strong>
-              <p>Demonstration account for the SolarFlow operations desk.</p>
-              <p>Role changes are not connected to a directory yet.</p>
+              <strong>{userName}</strong>
+              <p>{user?.email}</p>
+              <p>Signed in as {roleLabel}. Access is verified by SunPower services.</p>
+              {logoutError && <p className="form-error" role="alert">{logoutError}</p>}
+              <button type="button" className="btn btn-secondary profile-signout" onClick={handleLogout}>
+                Sign out
+              </button>
             </div>
           )}
         </div>
 
-        <span className="role-pill">{DEMO_USER.role}</span>
+        <span className="role-pill">{user?.role}</span>
       </div>
     </header>
   )
