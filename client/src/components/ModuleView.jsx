@@ -6,15 +6,11 @@ import InstallationChart from './InstallationChart'
 import InstallationsTable from './InstallationsTable'
 
 const SESSION_TYPE = {
-  customers: 'customer',
   quotations: 'quotation',
   inventory: 'inventory',
 }
 
 function sessionCells(record) {
-  if (record.type === 'customer') {
-    return [record.name, record.category || 'Home', record.city, record.phone, 'New lead']
-  }
   if (record.type === 'quotation') {
     return [
       record.quoteId,

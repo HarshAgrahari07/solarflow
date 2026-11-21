@@ -85,28 +85,51 @@ npm run dev
 ```
 
 Open the Vite URL (normally `http://localhost:5173`). Sign-in is at `/login`;
-public registration at `/register` creates CUSTOMER accounts only. The session
+public registration at `/register` creates a CUSTOMER account and a linked,
+persistent CRM profile. Registration accepts only Home or Small Factory, one
+supported solar requirement, and an optional 1–5 kW capacity. The session
 role is loaded from `/api/auth/me`; the browser never stores a JWT. ADMIN users
 retain the existing demonstration dashboard and can create allowed internal
 staff roles from **Staff Accounts**. Each staff role has separate navigation
 and searchable, role-specific synthetic work queues. The finance workspace
 includes illustrative invoices, advances, expenses, and project profitability;
-other workspaces show relevant demonstration enquiries, surveys, inventory,
-installations, warranty, and service records. These records are clearly marked
-as synthetic and workflow actions are not persisted to a business API.
+other workspaces show relevant demonstration surveys, inventory, installations,
+warranty, and service records. These records are clearly marked as synthetic
+and workflow actions are not persisted to a business API. **Customers & Leads**
+is backed by SQLite: ADMIN and SALES can create and edit customer records,
+track lead stages and notes, assign Sales owners, schedule follow-ups and mark
+them complete. Sales users see unassigned leads and leads assigned to them.
+Public registration links to an existing unlinked lead with the same email
+instead of creating a duplicate CRM record.
 
-The customer portal shows the signed-in user's own profile and private empty
-states for quotations, payments, order progress, installation, warranties, and
-complaints. It does not expose other customers' synthetic records. Live
-customer-specific project APIs, workflow persistence, staff time tracking,
-commissioning submissions, and warehouse dispatch APIs are not connected yet.
+The customer portal loads and edits only the signed-in user's linked profile.
+It does not expose other customers' information. Customer-specific quotations,
+payments, order progress, installation, warranties, and complaints remain
+private empty states until those business modules are connected. Linked customer
+accounts cannot be archived; unlinked leads can be archived by ADMIN.
 
 Authentication endpoints:
 
 - `POST /api/auth/login` and `POST /api/auth/logout`
 - `GET /api/auth/me`
-- `POST /api/auth/register-customer` (`fullName`, `email`, `phone`, `address`, `password`)
+- `POST /api/auth/register-customer` (`fullName`, `email`, `phone`, `address`, `category`, `solarRequirement`, `password`, optional `capacityKw`)
 - `POST /api/admin/users` (ADMIN only; supports SALES, SURVEYOR, WAREHOUSE, TECHNICIAN, SUPPORT, FINANCE)
+
+CRM endpoints:
+
+- `GET /api/customers` (ADMIN/SALES; supports `search`, `leadStatus`, and ADMIN-only `includeArchived`)
+- `POST /api/customers` (ADMIN/SALES)
+- `GET /api/customers/:customerId` (ADMIN/SALES or the owning CUSTOMER)
+- `PATCH /api/customers/:customerId` (ADMIN/SALES)
+- `DELETE /api/customers/:customerId` (ADMIN; archives unlinked leads only)
+- `GET` and `PATCH /api/customers/me` (the signed-in CUSTOMER's own profile)
+- `GET` and `POST /api/customers/:customerId/follow-ups`; `PATCH /api/customers/:customerId/follow-ups/:followUpId` (ADMIN/SALES with ownership/assignment checks)
+
+Lead categories are restricted to `Home` and `Small Factory`; solar system
+capacity is optional and, when provided, must be 1–5 kW inclusive. Customer and
+follow-up records are migrated and persisted in SQLite. Existing customer
+accounts are backfilled with their stored contact profile; category and system
+requirements stay unset until the customer or staff supplies them.
 
 The admin endpoint authorizes against the current database user, not a role sent
 by the browser or a JWT role claim.

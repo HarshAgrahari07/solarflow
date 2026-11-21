@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { findUserByEmail } from '../database/users.js'
 import { HttpError } from '../errors.js'
-import { createUser } from './userService.js'
+import { registerCustomerAccount } from './customerService.js'
 
 const GENERIC_CREDENTIALS_ERROR = 'Invalid email or password'
 
@@ -28,14 +28,25 @@ export function createAuthService({ database, config }) {
       return { user, token }
     },
 
-    async registerCustomer({ fullName, email, password, phone, address }) {
-      return createUser(database, {
+    async registerCustomer({
+      fullName,
+      email,
+      password,
+      phone,
+      address,
+      category,
+      solarRequirement,
+      capacityKw,
+    }) {
+      return registerCustomerAccount(database, {
         fullName,
         email,
         password,
-        role: 'CUSTOMER',
         phone,
         address,
+        category,
+        solarRequirement,
+        capacityKw,
       })
     },
   }

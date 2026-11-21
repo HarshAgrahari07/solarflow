@@ -24,7 +24,7 @@ export function createAuthController({ database, config }) {
     },
 
     registerCustomer: asyncHandler(async (request, response) => {
-      const user = await authService.registerCustomer(request.validatedBody)
+      const { user } = await authService.registerCustomer(request.validatedBody)
       response.status(201).json({ user: toPublicUser(user) })
     }),
   }

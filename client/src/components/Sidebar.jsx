@@ -36,7 +36,7 @@ export default function Sidebar({ activeId, items = NAV_ITEMS, open, onSelect, o
         ))}
       </nav>
 
-      <p className="sidebar-foot">Staff access is role-limited. Workflow records are demonstration data until APIs are connected.</p>
+      <p className="sidebar-foot">Access is role-limited. Customer and lead records are stored in the CRM; other workflows remain demonstrations.</p>
     </aside>
   )
 }

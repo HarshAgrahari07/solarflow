@@ -3,22 +3,6 @@ import { TECHNICIANS } from '../data/demoData'
 import Icon from './Icon'
 
 const FORMS = {
-  customer: {
-    title: 'Add customer',
-    lead: 'Register a Home or Small Factory into SunPower Solutions workspace.',
-    submit: 'Save customer',
-    fields: [
-      { name: 'name', label: 'Customer name', placeholder: 'e.g. Harjit Sandhu' },
-      {
-        name: 'category',
-        label: 'Customer category (Homes & Small Factories)',
-        type: 'select',
-        options: ['Home', 'Small Factory'],
-      },
-      { name: 'city', label: 'City', placeholder: 'e.g. Mohali' },
-      { name: 'phone', label: 'Phone', placeholder: 'e.g. 98155 33112' },
-    ],
-  },
   quotation: {
     title: 'Create quotation',
     lead: 'Draft a quotation (1.0 kW to 5.0 kW). Requires an approved associated roof survey.',

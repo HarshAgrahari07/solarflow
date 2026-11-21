@@ -26,6 +26,11 @@ export default function CustomerRegistrationPage({ onRegister, onNavigate, busy 
         email: String(formData.get('email') || '').trim(),
         phone: String(formData.get('phone') || '').trim(),
         address: String(formData.get('address') || '').trim(),
+        category: String(formData.get('category') || ''),
+        solarRequirement: String(formData.get('solarRequirement') || ''),
+        capacityKw: String(formData.get('capacityKw') || '') === ''
+          ? null
+          : Number(formData.get('capacityKw')),
         password,
       })
     } catch (registrationError) {
@@ -40,7 +45,7 @@ export default function CustomerRegistrationPage({ onRegister, onNavigate, busy 
         <div className="auth-story-copy">
           <p className="auth-eyebrow">Welcome to SunPower</p>
           <h1>Your solar journey starts here.</h1>
-          <p>Create a customer account to access your own project information when customer services are connected.</p>
+          <p>Create a customer account to save your profile and solar requirements securely.</p>
         </div>
         <p className="auth-story-foot">Customer registration creates a CUSTOMER account only.</p>
       </section>
@@ -51,7 +56,7 @@ export default function CustomerRegistrationPage({ onRegister, onNavigate, busy 
           <div className="auth-heading">
             <p className="auth-eyebrow">Get started</p>
             <h2>Create your account</h2>
-            <p>All fields are required. Staff accounts are created by an administrator.</p>
+            <p>Profile fields are required. Capacity is optional and must be from 1 to 5 kW when provided. Staff accounts are created by an administrator.</p>
           </div>
 
           {error && <p className="auth-error" role="alert">{error}</p>}
@@ -72,6 +77,27 @@ export default function CustomerRegistrationPage({ onRegister, onNavigate, busy 
             <label className="auth-field">
               <span>Address</span>
               <input name="address" autoComplete="street-address" minLength="5" maxLength="500" required />
+            </label>
+            <label className="auth-field">
+              <span>Customer category</span>
+              <select name="category" defaultValue="" required>
+                <option value="" disabled>Select Home or Small Factory</option>
+                <option value="Home">Home</option>
+                <option value="Small Factory">Small Factory</option>
+              </select>
+            </label>
+            <label className="auth-field">
+              <span>Solar requirement</span>
+              <select name="solarRequirement" defaultValue="" required>
+                <option value="" disabled>Select a solar requirement</option>
+                <option value="On-Grid System">On-Grid System</option>
+                <option value="Off-Grid System">Off-Grid System</option>
+                <option value="Solar Panel Set">Solar Panel Set</option>
+              </select>
+            </label>
+            <label className="auth-field">
+              <span>Estimated system capacity (optional)</span>
+              <input name="capacityKw" type="number" min="1" max="5" step="any" placeholder="1 to 5 kW" />
             </label>
             <label className="auth-field">
               <span>Password</span>
