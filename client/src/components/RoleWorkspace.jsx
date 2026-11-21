@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getNavigationForRole, getRoleLabel, ROLE_WORKSPACES } from '../auth/roleAccess'
+import CustomerManagement from './CustomerManagement'
 import {
   FINANCE_DATA,
   INSTALLATIONS,
@@ -54,7 +55,6 @@ const INSTALLATION_ROWS = INSTALLATIONS.map((job) => [
 
 const ROLE_TABLES = {
   SALES: {
-    customers: [{ title: 'Enquiries & follow-ups', columns: MODULES.customers.columns, rows: MODULES.customers.rows }],
     surveys: [{ title: 'Survey coordination', columns: MODULES.surveys.columns, rows: MODULES.surveys.rows }],
     quotations: [{ title: 'Quotation pipeline', columns: MODULES.quotations.columns, rows: MODULES.quotations.rows }],
   },
@@ -140,7 +140,7 @@ const ROLE_METRICS = {
 }
 
 const OVERVIEW_TABLE = {
-  SALES: ROLE_TABLES.SALES.customers[0],
+  SALES: ROLE_TABLES.SALES.quotations[0],
   SURVEYOR: ROLE_TABLES.SURVEYOR.surveys[0],
   WAREHOUSE: ROLE_TABLES.WAREHOUSE.inventory[0],
   TECHNICIAN: ROLE_TABLES.TECHNICIAN.installations[0],
@@ -248,7 +248,7 @@ export default function RoleWorkspace({ user, onLogout }) {
           searchPlaceholder="Search this workspace"
         />
         <main className="content role-content">
-          {!(user.role === 'FINANCE' && activeId === 'finance') && <DemoBanner />}
+          {!(user.role === 'FINANCE' && activeId === 'finance') && activeId !== 'customers' && <DemoBanner />}
           {activeId === 'overview' ? (
             <section className="role-dashboard">
               <div className="role-welcome panel">
@@ -296,6 +296,8 @@ export default function RoleWorkspace({ user, onLogout }) {
               <RoleMetrics role={user.role} />
               <WorkflowTable table={ROLE_TABLES.FINANCE.reports[0]} query={query} />
             </div>
+          ) : activeId === 'customers' ? (
+            <CustomerManagement user={user} query={query} />
           ) : (
             <section className="role-workflow">
               <div className="panel role-workflow-heading">

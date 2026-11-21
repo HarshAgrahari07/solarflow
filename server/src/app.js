@@ -8,6 +8,7 @@ import { corsForOrigin } from './middleware/cors.js'
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js'
 import { createAdminRouter } from './routes/admin.js'
 import { createAuthRouter } from './routes/auth.js'
+import { createCustomerRouter } from './routes/customers.js'
 import { createHealthRouter } from './routes/health.js'
 
 export function createApp({ database, config } = {}) {
@@ -23,6 +24,7 @@ export function createApp({ database, config } = {}) {
   app.use(cookieParser())
   app.use('/api/health', createHealthRouter(resolvedDatabase))
   app.use('/api/auth', createAuthRouter({ database: resolvedDatabase, config: resolvedConfig }))
+  app.use('/api/customers', createCustomerRouter({ database: resolvedDatabase, config: resolvedConfig }))
   app.use('/api/admin', createAdminRouter({ database: resolvedDatabase, config: resolvedConfig }))
   app.use(notFoundHandler)
   app.use(errorHandler)

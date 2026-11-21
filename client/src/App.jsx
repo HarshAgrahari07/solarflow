@@ -6,6 +6,7 @@ import { useAuth } from './auth/useAuth'
 import ActionDialog from './components/ActionDialog'
 import BOMDialog from './components/BOMDialog'
 import CommissioningDialog from './components/CommissioningDialog'
+import CustomerManagement from './components/CustomerManagement'
 import CustomerPortal from './components/CustomerPortal'
 import CustomerRegistrationPage from './components/CustomerRegistrationPage'
 import Dashboard from './components/Dashboard'
@@ -87,28 +88,7 @@ function AdminWorkspace({ user, onLogout }) {
   }
 
   function handleCreate(type, fields) {
-    if (type === 'customer') {
-      const name = fields.name.trim()
-      const category = fields.category || 'Home'
-      setSessionRecords((current) => [
-        {
-          id: `CUS-${Date.now()}`,
-          type: 'customer',
-          name,
-          category,
-          city: fields.city.trim(),
-          phone: fields.phone.trim(),
-        },
-        ...current,
-      ])
-      addActivity(
-        'customer',
-        'New customer registered',
-        `${name} (${category}) was registered at the SunPower Solutions operations desk.`,
-      )
-      setActiveNav('customers')
-      setNotice({ text: `Customer saved. ${name} (${category}) now appears in Customers & Leads.` })
-    } else if (type === 'quotation') {
+    if (type === 'quotation') {
       const customer = fields.customer.trim()
       const capacityVal = Number(fields.capacity)
       if (Number.isNaN(capacityVal) || capacityVal < 1.0 || capacityVal > 5.0) {
@@ -331,6 +311,14 @@ function AdminWorkspace({ user, onLogout }) {
     setCommissioningJob(null)
   }
 
+  function handleDashboardAction(type) {
+    if (type === 'customer') {
+      selectNav('customers')
+      return
+    }
+    setAction(type)
+  }
+
   function handleResolveTicket(ticketId) {
     setModulesData((prev) => {
       const updatedRows = prev.service.rows.map((row) => {
@@ -405,9 +393,11 @@ function AdminWorkspace({ user, onLogout }) {
               activities={activities}
               query={query}
               onClearSearch={() => setQuery('')}
-              onAction={setAction}
+              onAction={handleDashboardAction}
               onCommission={setCommissioningJob}
             />
+          ) : activeNav === 'customers' ? (
+            <CustomerManagement user={user} query={query} />
           ) : (
             <ModuleView
               activeId={activeNav}
