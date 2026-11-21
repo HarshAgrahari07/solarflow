@@ -1,6 +1,15 @@
 import { getRoleLabel } from '../auth/roleAccess'
 import SunPowerBrand from './SunPowerBrand'
 
+const CUSTOMER_RECORD_SECTIONS = [
+  'Quotations',
+  'Payments',
+  'Order progress',
+  'Installation details',
+  'Warranties',
+  'Complaints',
+]
+
 export default function CustomerPortal({ user, onLogout }) {
   return (
     <main className="customer-portal">
@@ -36,9 +45,25 @@ export default function CustomerPortal({ user, onLogout }) {
           </dl>
         </section>
 
+        <section className="customer-record-section" aria-labelledby="customer-records-heading">
+          <div className="customer-record-heading">
+            <h2 id="customer-records-heading">Your solar project</h2>
+            <p>Only records linked to your signed-in account will appear here.</p>
+          </div>
+          <div className="customer-record-grid">
+            {CUSTOMER_RECORD_SECTIONS.map((section) => (
+              <article className="panel customer-record-card" key={section}>
+                <h3>{section}</h3>
+                <p>No customer-specific records are connected yet.</p>
+                <span>Private to your account</span>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <div className="customer-data-note" role="status">
-          <strong>No project data is connected yet.</strong>
-          <span>Only your own account profile is shown here. No other customer records are available in this portal.</span>
+          <strong>Project services are not connected yet.</strong>
+          <span>This portal intentionally does not display other customers' quotations, payments or installation records.</span>
         </div>
       </section>
     </main>

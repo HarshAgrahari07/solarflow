@@ -65,7 +65,8 @@ Invoke-WebRequest -Uri http://localhost:4000/api/auth/logout -Method Post -WebSe
 ```
 
 The Vite development server proxies `/api` requests to the backend on port 4000.
-Run `npm run lint` and `npm run build` from `client/` to verify the frontend.
+Run `npm test`, `npm run lint`, and `npm run build` from `client/` to verify the
+role-access configuration and frontend.
 
 ## Run the authenticated application
 
@@ -87,10 +88,18 @@ Open the Vite URL (normally `http://localhost:5173`). Sign-in is at `/login`;
 public registration at `/register` creates CUSTOMER accounts only. The session
 role is loaded from `/api/auth/me`; the browser never stores a JWT. ADMIN users
 retain the existing demonstration dashboard and can create allowed internal
-staff roles from **Staff Accounts**. Staff dashboards expose role-specific
-navigation, while the customer portal displays only that user's profile until
-customer project APIs are connected. Workflow pages without live APIs are
-identified as demonstration/preparation views.
+staff roles from **Staff Accounts**. Each staff role has separate navigation
+and searchable, role-specific synthetic work queues. The finance workspace
+includes illustrative invoices, advances, expenses, and project profitability;
+other workspaces show relevant demonstration enquiries, surveys, inventory,
+installations, warranty, and service records. These records are clearly marked
+as synthetic and workflow actions are not persisted to a business API.
+
+The customer portal shows the signed-in user's own profile and private empty
+states for quotations, payments, order progress, installation, warranties, and
+complaints. It does not expose other customers' synthetic records. Live
+customer-specific project APIs, workflow persistence, staff time tracking,
+commissioning submissions, and warehouse dispatch APIs are not connected yet.
 
 Authentication endpoints:
 

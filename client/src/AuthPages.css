@@ -256,8 +256,47 @@
   animation: auth-spin 0.8s linear infinite;
 }
 
+.dashboard-skeleton {
+  display: grid;
+  gap: 14px;
+  width: min(760px, 100%);
+  margin-bottom: 8px;
+}
+
+.skeleton-heading,
+.skeleton-card,
+.skeleton-table {
+  border-radius: 12px;
+  background: linear-gradient(90deg, #edf4ef 25%, #f8fbf9 50%, #edf4ef 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-heading {
+  width: 42%;
+  height: 24px;
+}
+
+.skeleton-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.skeleton-card {
+  min-height: 92px;
+}
+
+.skeleton-table {
+  min-height: 150px;
+}
+
 @keyframes auth-spin {
   to { transform: rotate(360deg); }
+}
+
+@keyframes skeleton-shimmer {
+  to { background-position: -200% 0; }
 }
 
 .role-content {
@@ -269,6 +308,35 @@
 .role-dashboard {
   display: grid;
   gap: 18px;
+}
+
+.role-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.role-workflow {
+  display: grid;
+  gap: 16px;
+}
+
+.role-workflow-heading {
+  display: grid;
+  gap: 12px;
+}
+
+.role-workflow-heading > p,
+.role-table-card .section-head p {
+  color: var(--muted);
+}
+
+.role-table-card {
+  min-width: 0;
+}
+
+.role-table-card .data-table {
+  min-width: 720px;
 }
 
 .role-welcome {
@@ -477,6 +545,36 @@
   font-weight: 650;
 }
 
+.customer-record-section {
+  display: grid;
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.customer-record-heading p,
+.customer-record-card p {
+  margin-top: 5px;
+  color: var(--muted);
+}
+
+.customer-record-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.customer-record-card {
+  min-height: 132px;
+}
+
+.customer-record-card span {
+  display: inline-block;
+  margin-top: 14px;
+  color: var(--green-700);
+  font-size: 12px;
+  font-weight: 750;
+}
+
 .customer-data-note {
   display: grid;
   gap: 4px;
@@ -526,6 +624,11 @@
   .role-welcome {
     flex-direction: column;
   }
+
+  .role-metrics,
+  .customer-record-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 560px) {
@@ -542,7 +645,9 @@
   }
 
   .auth-form-grid,
-  .customer-profile-grid {
+  .customer-profile-grid,
+  .role-metrics,
+  .customer-record-grid {
     grid-template-columns: 1fr;
   }
 
@@ -559,6 +664,10 @@
 
   .customer-portal-content {
     margin: 32px auto;
+  }
+
+  .skeleton-cards {
+    grid-template-columns: 1fr;
   }
 
   .customer-profile-heading {

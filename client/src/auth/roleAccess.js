@@ -1,4 +1,4 @@
-import { NAV_ITEMS } from '../data/demoData'
+import { NAV_ITEMS } from '../data/demoData.js'
 
 export const ROLE_LABELS = {
   ADMIN: 'Administrator',
@@ -12,12 +12,14 @@ export const ROLE_LABELS = {
 }
 
 const ROLE_NAV_IDS = {
+  ADMIN: NAV_ITEMS.map((item) => item.id),
   SALES: ['overview', 'customers', 'surveys', 'quotations'],
   SURVEYOR: ['overview', 'surveys'],
   WAREHOUSE: ['overview', 'inventory'],
   TECHNICIAN: ['overview', 'installations'],
   SUPPORT: ['overview', 'warranties', 'service'],
   FINANCE: ['overview', 'finance', 'reports'],
+  CUSTOMER: [],
 }
 
 export const ROLE_WORKSPACES = {
@@ -70,9 +72,12 @@ export const ROLE_WORKSPACES = {
 }
 
 export function getNavigationForRole(role) {
-  const allowedIds = ROLE_NAV_IDS[role]
-  if (!allowedIds) return []
+  const allowedIds = ROLE_NAV_IDS[role] || []
   return NAV_ITEMS.filter((item) => allowedIds.includes(item.id))
+}
+
+export function canAccessNavigation(role, navigationId) {
+  return (ROLE_NAV_IDS[role] || []).includes(navigationId)
 }
 
 export function getRoleLabel(role) {

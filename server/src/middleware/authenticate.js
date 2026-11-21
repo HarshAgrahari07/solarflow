@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken'
 import { findUserById, toPublicUser } from '../database/users.js'
 import { HttpError } from '../errors.js'
+import { hasPermission } from '../auth/rolePermissions.js'
 
 export const AUTH_COOKIE_NAME = 'sunpower_session'
 
@@ -64,6 +65,20 @@ export function authorizeRoles(...allowedRoles) {
     }
 
     if (!allowedRoles.includes(request.user.role)) {
+      return next(new HttpError(403, 'FORBIDDEN', 'You do not have permission to access this resource'))
+    }
+
+    return next()
+  }
+}
+
+export function authorizePermission(permission) {
+  return function authorizePermissionRequest(request, response, next) {
+    if (!request.user) {
+      return next(new HttpError(401, 'UNAUTHORIZED', 'Authentication required'))
+    }
+
+    if (!hasPermission(request.user.role, permission)) {
       return next(new HttpError(403, 'FORBIDDEN', 'You do not have permission to access this resource'))
     }
 

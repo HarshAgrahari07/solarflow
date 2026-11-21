@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { createAdminController } from '../controllers/adminController.js'
-import { authenticate, authorizeRoles } from '../middleware/authenticate.js'
+import { authenticate, authorizePermission } from '../middleware/authenticate.js'
 import { validateBody } from '../middleware/validateBody.js'
 import { staffRegistrationSchema } from '../validation/authSchemas.js'
 
@@ -11,7 +11,7 @@ export function createAdminRouter({ database, config }) {
   router.post(
     '/users',
     authenticate({ database, config }),
-    authorizeRoles('ADMIN'),
+    authorizePermission('staff:create'),
     validateBody(staffRegistrationSchema),
     controller.createStaffUser,
   )
