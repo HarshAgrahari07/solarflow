@@ -5,7 +5,7 @@
 **/.env
 **/.env.*
 !**/.env.example
-**/data
+/server/data/
 **/*.sqlite
 **/*.sqlite-*
 **/*.db
