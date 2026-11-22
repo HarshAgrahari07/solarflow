@@ -1205,28 +1205,56 @@ select:focus-visible {
   }
 }
 
+@media (min-width: 961px) {
+  .sidebar {
+    position: sticky;
+    top: 0;
+    transform: none;
+    visibility: visible;
+  }
+
+  .menu-button,
+  .sidebar-close,
+  .backdrop {
+    display: none;
+  }
+}
+
 @media (max-width: 960px) {
   .sidebar {
     position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(var(--sidebar), 86vw);
+    height: 100vh;
+    height: 100dvh;
+    z-index: 40;
     transform: translateX(-105%);
-    transition: transform 0.2s ease;
+    visibility: hidden;
+    transition: transform 0.2s ease, visibility 0s linear 0.2s;
   }
 
   .sidebar.is-open {
-    transform: none;
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.2s ease, visibility 0s;
   }
 
   .sidebar-close,
-  .menu-button,
-  .backdrop {
+  .menu-button {
     display: inline-flex;
   }
 
   .backdrop {
+    display: block;
     position: fixed;
     inset: 0;
     z-index: 30;
+    width: 100%;
+    height: 100%;
     border: 0;
+    cursor: pointer;
     background: rgba(8, 40, 28, 0.45);
   }
 
