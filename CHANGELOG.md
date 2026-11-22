@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-22 — Responsive sidebar navigation
+
+- **Feature implemented:** Centralized sidebar open/close state for Admin and all staff workspaces. The sidebar stays visible on desktop and starts collapsed on tablet/mobile; the responsive drawer closes through its close button, backdrop, navigation selection, Escape, and desktop resize. Added synchronized menu accessibility labels and expanded state.
+- **Important files changed:** `client/src/hooks/useSidebarMenu.js`, `client/src/components/TopBar.jsx`, `client/src/components/Sidebar.jsx`, `client/src/App.jsx`, `client/src/components/RoleWorkspace.jsx`, `client/src/App.css`.
+- **Tests passed:** Frontend tests 5/5; frontend lint; production build; browser smoke across Admin and all six staff roles at 1280px, 960px, and 390px.
+- **Known limitations:** None.
+
 ## 2026-11-22 — Warranty, service, finance, and reporting fixes
 
 - **Feature implemented:** Corrected delivered serial lookup to use the product serial primary key; verified delivery-based inverter, panel, and battery warranty periods without assigning a charge-controller duration. Improved service-ticket details and responsive layout, and exercised support assignment, covered and uncovered resolutions, customer confirmation, and ownership checks. Split Finance & Accounts transaction entry from read-only Reports & Analytics, adding live inventory, installation, and service-ticket summaries.

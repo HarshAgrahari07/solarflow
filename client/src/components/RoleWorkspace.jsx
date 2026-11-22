@@ -15,6 +15,7 @@ import SurveyManagement from './SurveyManagement'
 import QuotationManagement from './QuotationManagement'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
+import useSidebarMenu from '../hooks/useSidebarMenu'
 
 const SERIAL_ROWS = [
   ...SERIAL_REGISTRY.inverters.map((serial) => [
@@ -204,7 +205,7 @@ function RoleMetrics({ role }) {
 
 export default function RoleWorkspace({ user, onLogout }) {
   const [activeId, setActiveId] = useState('overview')
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { sidebarOpen, toggleSidebar, closeSidebar } = useSidebarMenu()
   const [query, setQuery] = useState('')
   const items = getNavigationForRole(user.role)
   const workspace = ROLE_WORKSPACES[user.role]
@@ -215,7 +216,7 @@ export default function RoleWorkspace({ user, onLogout }) {
     if (!items.some((item) => item.id === id)) return
     setActiveId(id)
     setQuery('')
-    setSidebarOpen(false)
+    closeSidebar()
   }
 
   return (
@@ -225,14 +226,15 @@ export default function RoleWorkspace({ user, onLogout }) {
         items={items}
         open={sidebarOpen}
         onSelect={selectNav}
-        onClose={() => setSidebarOpen(false)}
+        onClose={closeSidebar}
       />
       {sidebarOpen && (
         <button
           type="button"
           className="backdrop"
-          aria-label="Close menu"
-          onClick={() => setSidebarOpen(false)}
+          aria-label="Close navigation menu"
+          aria-controls="primary-navigation"
+          onClick={closeSidebar}
         />
       )}
 
@@ -242,7 +244,8 @@ export default function RoleWorkspace({ user, onLogout }) {
           user={user}
           query={query}
           onQueryChange={setQuery}
-          onMenu={() => setSidebarOpen(true)}
+          sidebarOpen={sidebarOpen}
+          onMenu={toggleSidebar}
           onLogout={onLogout}
           alertsEnabled
           showSearch={!(user.role === 'FINANCE' && activeId === 'finance')}
