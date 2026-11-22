@@ -152,9 +152,17 @@
   font-weight: 450;
 }
 
-.auth-field input:focus-visible {
+.auth-field input:focus-visible,
+.auth-field select:focus-visible {
   outline: 3px solid rgba(27, 122, 78, 0.2);
   border-color: var(--green-600);
+}
+
+.auth-demo-note {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 450;
+  line-height: 1.4;
 }
 
 .password-input-wrap {

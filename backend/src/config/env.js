@@ -3,7 +3,7 @@ import path from 'node:path'
 import dotenv from 'dotenv'
 import { z } from 'zod'
 
-export const SERVER_ROOT = fileURLToPath(new URL('../..', import.meta.url))
+export const BACKEND_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
 const environmentSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -24,7 +24,7 @@ function isWithinDirectory(directory, target) {
 }
 
 export function loadConfig({ requireJwtSecret = true } = {}) {
-  dotenv.config({ path: path.join(SERVER_ROOT, '.env'), quiet: true })
+  dotenv.config({ path: path.join(BACKEND_ROOT, '.env'), quiet: true })
 
   const parsed = environmentSchema.safeParse(process.env)
   if (!parsed.success) {
@@ -39,16 +39,16 @@ export function loadConfig({ requireJwtSecret = true } = {}) {
   }
 
   const dataDir = path.resolve(
-    SERVER_ROOT,
+    BACKEND_ROOT,
     values.DATA_DIR || (values.NODE_ENV === 'production' ? '/app/data' : 'data'),
   )
   const databasePath = values.DATABASE_PATH
     ? (values.DATABASE_PATH === ':memory:'
       ? ':memory:'
-      : path.resolve(SERVER_ROOT, values.DATABASE_PATH))
+      : path.resolve(BACKEND_ROOT, values.DATABASE_PATH))
     : path.join(dataDir, 'sunpower.sqlite')
   const fileStoragePath = values.FILE_STORAGE_PATH
-    ? path.resolve(SERVER_ROOT, values.FILE_STORAGE_PATH)
+    ? path.resolve(BACKEND_ROOT, values.FILE_STORAGE_PATH)
     : path.join(dataDir, 'uploads')
 
   if (values.NODE_ENV === 'production') {

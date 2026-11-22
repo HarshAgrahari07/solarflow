@@ -3,7 +3,7 @@ import express from 'express'
 import cookieParser from 'cookie-parser'
 import helmet from 'helmet'
 import path from 'node:path'
-import { loadConfig, SERVER_ROOT } from './config/env.js'
+import { loadConfig, BACKEND_ROOT } from './config/env.js'
 import { openDatabase } from './database/connection.js'
 import { initializeDatabase } from './database/schema.js'
 import { corsForOrigin } from './middleware/cors.js'
@@ -48,14 +48,14 @@ export function createApp({ database, config } = {}) {
   app.use('/api', notFoundHandler)
 
   if (resolvedConfig.nodeEnv === 'production') {
-    const clientDist = resolvedConfig.clientDistPath
-      ? path.resolve(resolvedConfig.clientDistPath)
-      : path.resolve(SERVER_ROOT, '..', 'client', 'dist')
-    const indexPath = path.join(clientDist, 'index.html')
+    const frontendDist = resolvedConfig.frontendDistPath
+      ? path.resolve(resolvedConfig.frontendDistPath)
+      : path.resolve(BACKEND_ROOT, '..', 'frontend', 'dist')
+    const indexPath = path.join(frontendDist, 'index.html')
     if (!fs.existsSync(indexPath)) {
-      throw new Error(`Production frontend build not found at ${indexPath}. Build client/dist before startup.`)
+      throw new Error(`Production frontend build not found at ${indexPath}. Build frontend/dist before startup.`)
     }
-    app.use(express.static(clientDist, { index: false, dotfiles: 'deny' }))
+    app.use(express.static(frontendDist, { index: false, dotfiles: 'deny' }))
     app.use((request, response, next) => {
       if (request.method !== 'GET' || request.path.startsWith('/api/')) {
         return next()

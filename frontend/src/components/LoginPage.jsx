@@ -1,6 +1,17 @@
 import { useState } from 'react'
 import SunPowerBrand from './SunPowerBrand'
 
+const DEMO_ACCOUNTS = [
+  { role: 'ADMIN', email: 'admin@sunpower.demo' },
+  { role: 'SALES', email: 'sales@sunpower.demo' },
+  { role: 'SURVEYOR', email: 'surveyor@sunpower.demo' },
+  { role: 'WAREHOUSE', email: 'warehouse@sunpower.demo' },
+  { role: 'TECHNICIAN', email: 'technician@sunpower.demo' },
+  { role: 'SUPPORT', email: 'support@sunpower.demo' },
+  { role: 'FINANCE', email: 'finance@sunpower.demo' },
+  { role: 'CUSTOMER', email: 'customer@sunpower.demo' },
+]
+
 export default function LoginPage({
   onLogin,
   onNavigate,
@@ -11,6 +22,7 @@ export default function LoginPage({
 }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [demoRole, setDemoRole] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
 
@@ -56,6 +68,25 @@ export default function LoginPage({
 
           <form className="auth-form" onSubmit={submit}>
             <label className="auth-field">
+              <span>Quick Demo Login (optional)</span>
+              <select
+                value={demoRole}
+                onChange={(event) => {
+                  const role = event.target.value
+                  setDemoRole(role)
+                  const account = DEMO_ACCOUNTS.find((demoAccount) => demoAccount.role === role)
+                  if (account) setEmail(account.email)
+                }}
+              >
+                <option value="">Choose a role to prefill an email</option>
+                {DEMO_ACCOUNTS.map(({ role }) => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
+              </select>
+              <small className="auth-demo-note">Prefills the email only. Enter the password manually.</small>
+            </label>
+
+            <label className="auth-field">
               <span>Email address</span>
               <input
                 type="email"
@@ -64,7 +95,10 @@ export default function LoginPage({
                 inputMode="email"
                 placeholder="you@example.com"
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) => {
+                  setEmail(event.target.value)
+                  setDemoRole('')
+                }}
                 required
               />
             </label>

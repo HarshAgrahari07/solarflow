@@ -6,7 +6,7 @@ import { createServer } from 'node:http'
 import { randomBytes } from 'node:crypto'
 import { test } from 'node:test'
 import { createApp } from '../src/app.js'
-import { loadConfig, SERVER_ROOT } from '../src/config/env.js'
+import { loadConfig, BACKEND_ROOT } from '../src/config/env.js'
 import { openDatabase } from '../src/database/connection.js'
 import { cookieOptions } from '../src/middleware/authenticate.js'
 
@@ -73,21 +73,21 @@ test('production rejects ephemeral database paths, HTTP origins, and missing sec
   assert.throws(() => loadConfig(), /Invalid server configuration/)
 })
 
-test('local database and upload paths keep their existing server/data defaults', (context) => {
+test('local database and upload paths keep their existing backend/data defaults', (context) => {
   setEnvironment(context, {
     NODE_ENV: 'development',
     PORT: '4000',
     JWT_SECRET: randomBytes(48).toString('base64url'),
-    DATA_DIR: path.join(SERVER_ROOT, 'data'),
+    DATA_DIR: path.join(BACKEND_ROOT, 'data'),
     DATABASE_PATH: 'data/sunpower.sqlite',
     FILE_STORAGE_PATH: 'data/uploads',
     FRONTEND_ORIGIN: 'http://localhost:5173',
   })
 
   const config = loadConfig()
-  assert.equal(config.dataDir, path.join(SERVER_ROOT, 'data'))
-  assert.equal(config.databasePath, path.join(SERVER_ROOT, 'data', 'sunpower.sqlite'))
-  assert.equal(config.fileStoragePath, path.join(SERVER_ROOT, 'data', 'uploads'))
+  assert.equal(config.dataDir, path.join(BACKEND_ROOT, 'data'))
+  assert.equal(config.databasePath, path.join(BACKEND_ROOT, 'data', 'sunpower.sqlite'))
+  assert.equal(config.fileStoragePath, path.join(BACKEND_ROOT, 'data', 'uploads'))
 })
 
 test('production authentication cookies remain secure and HttpOnly', () => {
@@ -100,11 +100,11 @@ test('production authentication cookies remain secure and HttpOnly', () => {
 test('production serves the SPA, keeps API misses as JSON, and protects file routes', async (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sunpower-production-smoke-'))
   const dataDir = path.join(root, 'data')
-  const clientDistPath = path.join(root, 'client')
-  fs.mkdirSync(clientDistPath, { recursive: true })
-  fs.writeFileSync(path.join(clientDistPath, 'index.html'), '<!doctype html><title>SunPower smoke</title>')
-  fs.mkdirSync(path.join(clientDistPath, 'assets'), { recursive: true })
-  fs.writeFileSync(path.join(clientDistPath, 'assets', 'app.js'), 'window.sunpowerReady = true')
+  const frontendDistPath = path.join(root, 'frontend')
+  fs.mkdirSync(frontendDistPath, { recursive: true })
+  fs.writeFileSync(path.join(frontendDistPath, 'index.html'), '<!doctype html><title>SunPower smoke</title>')
+  fs.mkdirSync(path.join(frontendDistPath, 'assets'), { recursive: true })
+  fs.writeFileSync(path.join(frontendDistPath, 'assets', 'app.js'), 'window.sunpowerReady = true')
 
   const database = openDatabase(':memory:')
   const app = createApp({
@@ -117,7 +117,7 @@ test('production serves the SPA, keeps API misses as JSON, and protects file rou
       databasePath: ':memory:',
       fileStoragePath: path.join(dataDir, 'uploads'),
       frontendOrigin: null,
-      clientDistPath,
+      frontendDistPath,
     },
   })
   const server = createServer(app)

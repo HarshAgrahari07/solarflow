@@ -6,16 +6,16 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY server/package.json server/package-lock.json ./server/
-RUN npm ci --omit=dev --prefix /app/server
+COPY backend/package.json backend/package-lock.json ./backend/
+RUN npm ci --omit=dev --prefix /app/backend
 
-COPY client/package.json client/package-lock.json ./client/
-RUN npm ci --prefix /app/client
-COPY client ./client
-RUN npm run build --prefix /app/client
+COPY frontend/package.json frontend/package-lock.json ./frontend/
+RUN npm ci --prefix /app/frontend
+COPY frontend ./frontend
+RUN npm run build --prefix /app/frontend
 
-COPY server/src ./server/src
-COPY server/scripts ./server/scripts
+COPY backend/src ./backend/src
+COPY backend/scripts ./backend/scripts
 
 FROM node:26-bookworm-slim AS production
 
@@ -29,11 +29,11 @@ ENV NODE_ENV=production \
   DATABASE_PATH=/app/data/sunpower.sqlite \
   FILE_STORAGE_PATH=/app/data/uploads
 
-COPY --from=build /app/server/package.json ./server/package.json
-COPY --from=build /app/server/node_modules ./server/node_modules
-COPY --from=build /app/server/src ./server/src
-COPY --from=build /app/server/scripts ./server/scripts
-COPY --from=build /app/client/dist ./client/dist
+COPY --from=build /app/backend/package.json ./backend/package.json
+COPY --from=build /app/backend/node_modules ./backend/node_modules
+COPY --from=build /app/backend/src ./backend/src
+COPY --from=build /app/backend/scripts ./backend/scripts
+COPY --from=build /app/frontend/dist ./frontend/dist
 
 EXPOSE 4000
-CMD ["npm", "--prefix", "server", "start"]
+CMD ["npm", "--prefix", "backend", "start"]

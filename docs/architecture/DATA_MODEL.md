@@ -4,12 +4,12 @@ This document describes the SQLite workflow foundation and persistent CRM.
 The schema is an additive upgrade to the existing authentication and customer
 database; it preserves existing users and legacy CRM records. The official
 operational source is
-[`docs/requirements/Solar_Installation_Management_System.pdf`](./requirements/Solar_Installation_Management_System.pdf).
+[`docs/requirements/Solar_Installation_Management_System.pdf`](../requirements/Solar_Installation_Management_System.pdf).
 
 ## Migrations
 
-Migrations live in `server/src/database/migrations/` and are registered by
-`server/src/database/migrate.js`.
+Migrations live in `backend/src/database/migrations/` and are registered by
+`backend/src/database/migrate.js`.
 
 | Version | Migration | Purpose |
 | --- | --- | --- |
@@ -160,7 +160,7 @@ table. Reporting views are `v_customer_equipment_serials`,
 
 - `stored_files` holds metadata and a normalized relative storage key, not file
   content. Attachment tables reference it. `writeManagedFile` in
-  `server/src/services/fileStorage.js` writes outside SQLite under a caller
+  `backend/src/services/fileStorage.js` writes outside SQLite under a caller
   supplied root, rejects traversal, and uses exclusive file creation.
 - `demo_seed_batches` and `demo_seed_records` mark synthetic records and let
   reporting distinguish them from operational data.
@@ -264,7 +264,7 @@ erDiagram
 
 The existing managed-file helper stores survey photographs outside SQLite.
 `FILE_STORAGE_PATH` configures the storage root; the default is
-`server/data/uploads/`, excluded from Git. Uploads accept JPEG, PNG, or WebP
+`backend/data/uploads/`, excluded from Git. Uploads accept JPEG, PNG, or WebP
 with a 5 MB maximum, verify the media signature, generate server-controlled
 storage keys, and persist only the file metadata and attachment relationship.
 Original client filenames are display metadata and are not used as storage
@@ -275,7 +275,7 @@ be retained; a SQLite-only backup does not include file contents.
 
 ## Migrate and seed
 
-From `server/`:
+From `backend/`:
 
 ```powershell
 npm run db:init
@@ -299,7 +299,7 @@ are created only when an active technician account is already present.
 
 ## Backup and restore
 
-Stop the API before a restore. From `server/`, use SQLite's online backup API
+Stop the API before a restore. From `backend/`, use SQLite's online backup API
 through the installed `better-sqlite3` dependency to include a consistent
 snapshot even when WAL mode is enabled:
 
