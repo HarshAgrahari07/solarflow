@@ -135,6 +135,46 @@ test('customers see only their own orders, installation assignments, and service
   const otherTickets = await request('/api/operations/service-tickets', otherCustomerCookie)
   assert.equal(otherTickets.response.status, 200)
   assert.deepEqual(otherTickets.payload.tickets, [])
+  const privateReport = await request('/api/operations/finance/report', customerCookie)
+  assert.equal(privateReport.response.status, 403)
+})
+
+test('delivered serial lookup returns configured warranty data and enforces customer ownership', async () => {
+  const supportCookie = await login('support@workflow.test')
+  const customerCookie = await login('customer@workflow.test')
+  const otherCustomerCookie = await login('other.customer@workflow.test')
+  const expected = [
+    { serialNumber: 'DEMO-INVERTER-SERIAL-001', productType: 'INVERTER', productName: 'Demo inverter', endsOn: '2028-11-20' },
+    { serialNumber: 'DEMO-PANEL-SERIAL-001', productType: 'PANEL', productName: 'Demo solar panels', endsOn: '2046-11-20' },
+    { serialNumber: 'DEMO-BATTERY-SERIAL-001', productType: 'BATTERY', productName: 'Demo large battery', endsOn: '2028-11-20' },
+    { serialNumber: 'DEMO-CONTROLLER-SERIAL-001', productType: 'CHARGE_CONTROLLER', productName: 'Demo charge controller', endsOn: null },
+  ]
+
+  for (const item of expected) {
+    const result = await request(`/api/operations/serials/${item.serialNumber}`, supportCookie)
+    assert.equal(result.response.status, 200, result.payload.error?.message)
+    assert.equal(result.payload.equipment.productType, item.productType)
+    assert.equal(result.payload.equipment.productName, item.productName)
+    assert.equal(result.payload.equipment.customerId, 'demo-customer-home-complete')
+    assert.equal(result.payload.equipment.customerName, 'Demo Customer One')
+    assert.equal(result.payload.equipment.warranty.startsOn, '2026-11-20')
+    assert.equal(result.payload.equipment.warranty.startsOn, result.payload.equipment.deliveryCompletedAt.slice(0, 10))
+    assert.equal(result.payload.equipment.warranty.endsOn, item.endsOn)
+    assert.equal(
+      result.payload.equipment.warranty.status,
+      item.productType === 'CHARGE_CONTROLLER' ? 'UNSPECIFIED' : 'ACTIVE',
+    )
+  }
+
+  const ownedSerial = await request('/api/operations/serials/DEMO-INVERTER-SERIAL-001', customerCookie)
+  assert.equal(ownedSerial.response.status, 200)
+  const privateSerial = await request('/api/operations/serials/DEMO-INVERTER-SERIAL-001', otherCustomerCookie)
+  assert.equal(privateSerial.response.status, 404)
+  assert.equal(privateSerial.payload.error.code, 'SERIAL_NOT_FOUND')
+
+  const unknownSerial = await request('/api/operations/serials/UNKNOWN-SERIAL', supportCookie)
+  assert.equal(unknownSerial.response.status, 404)
+  assert.equal(unknownSerial.payload.error.code, 'SERIAL_NOT_FOUND')
 })
 
 test('accepted quotations become confirmed orders with persistent dispatch and installation records', async () => {
@@ -201,11 +241,21 @@ test('accepted quotations become confirmed orders with persistent dispatch and i
 })
 
 test('finance APIs are role-scoped and invoices snapshot priced accepted-order lines', async () => {
+  const adminCookie = await login('admin@workflow.test')
   const financeCookie = await login('finance@workflow.test')
   const warehouseCookie = await login('warehouse@workflow.test')
+  const supportCookie = await login('support@workflow.test')
 
+  const adminReport = await request('/api/operations/finance/report', adminCookie)
+  assert.equal(adminReport.response.status, 200)
+  const adminTickets = await request('/api/operations/service-tickets', adminCookie)
+  assert.equal(adminTickets.response.status, 200)
+  const supportTickets = await request('/api/operations/service-tickets', supportCookie)
+  assert.equal(supportTickets.response.status, 200)
   const forbidden = await request('/api/operations/finance/report', warehouseCookie)
   assert.equal(forbidden.response.status, 403)
+  const supportForbidden = await request('/api/operations/finance/report', supportCookie)
+  assert.equal(supportForbidden.response.status, 403)
 
   const payableOrder = await request('/api/operations/orders/demo-order-ongoing', financeCookie)
   assert.ok(payableOrder.payload.order.outstandingAmount > 0)
@@ -237,6 +287,17 @@ test('finance APIs are role-scoped and invoices snapshot priced accepted-order l
   assert.equal(report.response.status, 200)
   assert.ok(report.payload.report.projectCount > 0)
   assert.ok(report.payload.report.incompleteProjectCount >= 0)
+  assert.deepEqual(
+    report.payload.report.operations.installationStatuses,
+    database.prepare('SELECT status, count(*) AS count FROM installation_jobs GROUP BY status ORDER BY status').all(),
+  )
+  assert.deepEqual(
+    report.payload.report.operations.serviceTicketStatuses,
+    database.prepare('SELECT status, count(*) AS count FROM service_tickets GROUP BY status ORDER BY status').all(),
+  )
+
+  const financeTicketForbidden = await request('/api/operations/service-tickets', financeCookie)
+  assert.equal(financeTicketForbidden.response.status, 403)
 })
 
 test('finance payroll is limited to assigned technician time and explicit rates or amounts', async () => {
@@ -376,6 +437,7 @@ test('warehouse dispatch workflow reserves stock and advances through delivery',
 test('support resolution requires explicit charges outside active warranty and customer confirmation', async () => {
   const supportCookie = await login('support@workflow.test')
   const customerCookie = await login('customer@workflow.test')
+  const otherCustomerCookie = await login('other.customer@workflow.test')
   database.prepare(`
     UPDATE warranty_records
     SET starts_on = date('now', '-1 day'), ends_on = date('now', '+1 year')
@@ -392,16 +454,48 @@ test('support resolution requires explicit charges outside active warranty and c
   })
   assert.equal(created.response.status, 201)
   const ticketId = created.payload.ticket.id
+  assert.equal(created.payload.ticket.status, 'OPEN')
+
+  const assigned = await request(`/api/operations/service-tickets/${ticketId}/assignment`, supportCookie, {
+    method: 'PATCH',
+    body: { supportUserId: userIds.support },
+  })
+  assert.equal(assigned.response.status, 200)
+  assert.equal(assigned.payload.ticket.status, 'IN_PROGRESS')
 
   const noChargeDetails = await request(`/api/operations/service-tickets/${ticketId}/resolve`, supportCookie, {
     method: 'POST',
-    body: { type: 'REPAIR', notes: 'Synthetic resolution' },
+    body: { type: 'REPAIR', partsCharge: 500, labourCharge: 250, notes: 'Synthetic resolution' },
   })
   assert.equal(noChargeDetails.response.status, 200)
   assert.equal(noChargeDetails.payload.ticket.resolutions[0].warrantyCoverage, 'COVERED')
+  assert.equal(noChargeDetails.payload.ticket.status, 'WAITING_CUSTOMER')
   assert.equal(database.prepare(`
-    SELECT parts_charge FROM service_resolutions WHERE ticket_id = ?
+    SELECT parts_charge, labour_charge FROM service_resolutions WHERE ticket_id = ?
   `).get(ticketId).parts_charge, 0)
+  assert.equal(database.prepare(`
+    SELECT labour_charge FROM service_resolutions WHERE ticket_id = ?
+  `).get(ticketId).labour_charge, 0)
+
+  const privateConfirmation = await request(`/api/operations/service-tickets/${ticketId}/confirm`, otherCustomerCookie, {
+    method: 'POST',
+    body: { confirmed: true, notes: 'Not the ticket owner' },
+  })
+  assert.equal(privateConfirmation.response.status, 404)
+
+  const moreHelp = await request(`/api/operations/service-tickets/${ticketId}/confirm`, customerCookie, {
+    method: 'POST',
+    body: { confirmed: false, notes: 'Please provide further help.' },
+  })
+  assert.equal(moreHelp.response.status, 200)
+  assert.equal(moreHelp.payload.ticket.status, 'IN_PROGRESS')
+
+  const confirmedResolution = await request(`/api/operations/service-tickets/${ticketId}/resolve`, supportCookie, {
+    method: 'POST',
+    body: { type: 'REPLACEMENT', partsCharge: 0, labourCharge: 0, notes: 'Replacement completed.' },
+  })
+  assert.equal(confirmedResolution.response.status, 200)
+  assert.equal(confirmedResolution.payload.ticket.status, 'WAITING_CUSTOMER')
 
   const confirmed = await request(`/api/operations/service-tickets/${ticketId}/confirm`, customerCookie, {
     method: 'POST',
@@ -426,4 +520,18 @@ test('support resolution requires explicit charges outside active warranty and c
   )
   assert.equal(chargeRequired.response.status, 400)
   assert.equal(chargeRequired.payload.error.code, 'SERVICE_CHARGES_REQUIRED')
+
+  const chargedResolution = await request(
+    `/api/operations/service-tickets/${nonWarrantyTicket.payload.ticket.id}/resolve`,
+    supportCookie,
+    {
+      method: 'POST',
+      body: { type: 'REPLACEMENT', partsCharge: 120, labourCharge: 80, notes: 'Configured non-warranty charges.' },
+    },
+  )
+  assert.equal(chargedResolution.response.status, 200)
+  assert.equal(chargedResolution.payload.ticket.status, 'WAITING_CUSTOMER')
+  assert.equal(chargedResolution.payload.ticket.resolutions[0].warrantyCoverage, 'NOT_COVERED')
+  assert.equal(chargedResolution.payload.ticket.resolutions[0].partsCharge, 120)
+  assert.equal(chargedResolution.payload.ticket.resolutions[0].labourCharge, 80)
 })
