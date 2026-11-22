@@ -78,9 +78,9 @@ web_modules/
 *.sqlite-*
 
 # Local demonstration credentials
-server/data/demo-credentials.txt
-server/data/initial-admin-credentials.txt
-server/data/uploads/
+backend/data/demo-credentials.txt
+backend/data/initial-admin-credentials.txt
+backend/data/uploads/
 **/demo-credentials.txt
 **/initial-admin-credentials.txt
 

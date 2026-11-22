@@ -1,13 +1,13 @@
 # Railway deployment
 
 SunPower is deployed as one Node service. The root Dockerfile builds the Vite
-client and runs Express, which serves `/`, client routes, `/api/*`, and
+frontend and runs Express, which serves `/`, frontend routes, `/api/*`, and
 authorized survey-photo responses from the same HTTPS origin. SQLite and
 uploads are stored on a Railway volume, not in the container image.
 
 ## Prerequisites and GitHub connection
 
-- A GitHub account with access to `HarshAgrahari07/solarflow`.
+- A GitHub account with access to `HarshAgrahari07/solarpower`.
 - A Railway account and a project connected to that repository.
 - A Railway persistent volume mounted at `/app/data` before the first
   production deployment.
@@ -29,18 +29,18 @@ From the repository root, an equivalent local container build is:
 docker build -t sunpower-solutions .
 ```
 
-The image build runs `npm ci --omit=dev --prefix /app/server`,
-`npm ci --prefix /app/client`, and `npm run build --prefix /app/client`.
+The image build runs `npm ci --omit=dev --prefix /app/backend`,
+`npm ci --prefix /app/frontend`, and `npm run build --prefix /app/frontend`.
 The container start command is:
 
 ```sh
-npm --prefix server start
+npm --prefix backend start
 ```
 
 This is also the Dockerfile `CMD`; Railway should use the Dockerfile rather
 than overriding the start command. The API listens on Railway's `PORT` and
-binds to `0.0.0.0`. For local development, use `npm run dev` in `server/` and
-`npm run dev` in `client/`; the existing Vite `/api` proxy remains enabled.
+binds to `0.0.0.0`. For local development, use `npm run dev` in `backend/` and
+`npm run dev` in `frontend/`; the existing Vite `/api` proxy remains enabled.
 
 ## Environment variables
 
@@ -84,7 +84,7 @@ Dashboard shell) to run commands inside the deployed container. Create a
 production administrator with a generated password:
 
 ```sh
-cd /app/server
+cd /app/backend
 npm run admin:create -- --email admin@example.com --full-name "SunPower Administrator"
 ```
 
@@ -100,7 +100,7 @@ For a controlled hackathon demonstration only, the synthetic role accounts
 and business records can be seeded explicitly:
 
 ```sh
-cd /app/server
+cd /app/backend
 npm run seed
 npm run db:seed
 ```
@@ -140,7 +140,7 @@ directory. With the application environment available in a Railway shell,
 create a consistent SQLite snapshot using the SQLite backup API:
 
 ```sh
-cd /app/server
+cd /app/backend
 node --input-type=module -e "import Database from 'better-sqlite3'; const db = new Database(process.env.DATABASE_PATH); await db.backup('/app/data/sunpower-backup.sqlite'); db.close()"
 ```
 
@@ -150,7 +150,7 @@ restore, stop the service and restore the matching photo directory to
 `/app/data/uploads`. For a SQLite snapshot already present on the volume, run:
 
 ```sh
-cd /app/server
+cd /app/backend
 node --input-type=module -e "import Database from 'better-sqlite3'; const snapshot = new Database('/app/data/sunpower-backup.sqlite', { readonly: true }); await snapshot.backup('/app/data/sunpower.sqlite'); snapshot.close()"
 ```
 

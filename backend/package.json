@@ -1,5 +1,5 @@
 {
-  "name": "sunpower-solutions-server",
+  "name": "sunpower-solutions-backend",
   "private": true,
   "type": "module",
   "engines": {

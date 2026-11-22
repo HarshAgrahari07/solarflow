@@ -2,11 +2,46 @@
 
 Solar Installation Management System – Odoo x LPU Hackathon 2026.
 
-The official operational requirements are maintained in
-[`docs/requirements/Solar_Installation_Management_System.pdf`](./docs/requirements/Solar_Installation_Management_System.pdf).
-For Railway deployment, environment variables, persistent storage, admin
-provisioning, backups, and troubleshooting, see
-[`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
+## Repository layout
+
+```text
+.github/                         Repository guidance
+frontend/                        React + Vite application and frontend tests
+  src/                            Screens, shared components, and frontend auth
+  test/                           Frontend API and role/workflow tests
+backend/                         Express API and SQLite data layer
+  scripts/                        Explicit setup, migration, and seed commands
+  src/database/migrations/        Versioned schema migrations
+  test/                           Backend and deployment tests
+  data/                           Local runtime database, uploads, credentials (ignored)
+docs/
+  architecture/DATA_MODEL.md      Schema, migrations, and data relationships
+  deployment/DEPLOYMENT.md        Railway setup, storage, and operations
+  requirements/                   Locally supplied official requirements PDF (not committed)
+Dockerfile                        Single-service production image
+railway.toml                      Railway Docker and health-check settings
+README.md                         Setup and application guide
+CHANGELOG.md                      Implemented milestones and known limitations
+```
+
+`frontend/` contains the responsive React application, Vite configuration,
+assets, and frontend tests. `backend/` contains the Express APIs, authentication,
+SQLite connection and migrations, managed-file storage, tests, and explicit
+admin/demo setup scripts. Pending migrations run safely at backend startup;
+the seed scripts are explicit and are not run on deployment restarts.
+
+`docs/architecture/` documents the data model and migration history.
+`docs/deployment/` covers Railway setup and operations. The official requirements
+PDF is available locally at `docs/requirements/Solar_Installation_Management_System.pdf`
+and is intentionally excluded from the public repository.
+
+The root `Dockerfile` builds the Vite app, packages it with Express, and serves
+the frontend and API on one origin. Railway mounts persistent storage at
+`/app/data` for SQLite and uploads; see
+[`docs/deployment/DEPLOYMENT.md`](./docs/deployment/DEPLOYMENT.md).
+
+**Technologies:** React 19, Vite, Node.js 26, Express 5, SQLite via
+`better-sqlite3`, Docker, and Railway.
 
 ## Overview
 Management platform tailored for **SunPower Solutions** (~40 rooftop projects per month benchmark scale, 15-person technician crew, residential and small factory installations).
@@ -28,26 +63,26 @@ Management platform tailored for **SunPower Solutions** (~40 rooftop projects pe
 
 ## Local backend and authentication
 
-The Express API is in `server/`; the existing React dashboard remains in `client/`.
+The Express API is in `backend/`; the existing React dashboard is in `frontend/`.
 Node.js 26 is required.
 
 From the repository root, initialize the local backend and generated demonstration
 accounts:
 
 ```powershell
-cd server
+cd backend
 npm ci
 npm run setup
 npm run dev
 ```
 
-`npm run setup` is a local-development command. It creates `server/.env`,
-initializes `server/data/sunpower.sqlite`, seeds eight role-specific demo
+`npm run setup` is a local-development command. It creates `backend/.env`,
+initializes `backend/data/sunpower.sqlite`, seeds eight role-specific demo
 accounts, and writes their generated shared password to the ignored
-`server/data/demo-credentials.txt` file. Do not copy that file into source
+`backend/data/demo-credentials.txt` file. Do not copy that file into source
 control. The password remains stable across repeat seed runs.
 
-Useful backend commands (run from `server/`):
+Useful backend commands (run from `backend/`):
 
 - `npm run db:init` applies pending, versioned SQLite migrations.
 - `npm run db:seed` applies migrations and inserts idempotent synthetic business workflow records without changing users.
@@ -57,16 +92,16 @@ Useful backend commands (run from `server/`):
 - `npm start` starts the API on port 4000.
 
 Production runs as a single service: Express serves both the built React app
-and `/api/*`. The root `Dockerfile` builds the client and starts the server;
-Railway configuration and the exact persistent-volume settings are documented
-in [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
+and `/api/*`. The root `Dockerfile` builds `frontend/` and starts
+`backend/`; Railway configuration and the exact persistent-volume settings are
+documented in [`docs/deployment/DEPLOYMENT.md`](./docs/deployment/DEPLOYMENT.md).
 
 The relational workflow schema and authenticated APIs cover the CRM, surveys,
 quotations, orders, payments, inventory, dispatch, installations, warranties,
 service, and finance. Admin, Sales, Surveyor, Warehouse, Technician, Support,
 Finance, and Customer workspaces are connected to records and actions permitted
 for their role. The Admin KPI overview and explicitly marked demo records remain
-synthetic. See the [database model and operations guide](./docs/DATA_MODEL.md)
+synthetic. See the [database model and operations guide](./docs/architecture/DATA_MODEL.md)
 for relationships, API scope, migration/seed instructions, file storage, and
 backup/restore guidance.
 
@@ -74,7 +109,7 @@ The demo accounts are `admin@sunpower.demo`, `sales@sunpower.demo`,
 `surveyor@sunpower.demo`, `warehouse@sunpower.demo`,
 `technician@sunpower.demo`, `support@sunpower.demo`,
 `finance@sunpower.demo`, and `customer@sunpower.demo`. Use the generated
-password in `server/data/demo-credentials.txt`.
+password in `backend/data/demo-credentials.txt`.
 
 The API can be checked with `Invoke-RestMethod http://localhost:4000/api/health`.
 For cookie-based login testing in PowerShell:
@@ -88,7 +123,7 @@ Invoke-WebRequest -Uri http://localhost:4000/api/auth/logout -Method Post -WebSe
 ```
 
 The Vite development server proxies `/api` requests to the backend on port 4000.
-Run `npm test`, `npm run lint`, and `npm run build` from `client/` to verify the
+Run `npm test`, `npm run lint`, and `npm run build` from `frontend/` to verify the
 role-access configuration and frontend.
 
 ## Run the authenticated application
@@ -96,14 +131,14 @@ role-access configuration and frontend.
 Start the API in one terminal:
 
 ```powershell
-cd server
+cd backend
 npm run dev
 ```
 
 Start the React application in a second terminal:
 
 ```powershell
-cd client
+cd frontend
 npm run dev
 ```
 
@@ -176,7 +211,7 @@ Photographs are limited to JPEG, PNG, or WebP up to 5 MB and are written
 through managed filesystem storage. The database stores metadata and a
 server-generated storage key, not image content or unrestricted paths.
 `FILE_STORAGE_PATH` optionally configures the storage root; the default is
-`server/data/uploads/`. The directory is ignored by Git and must be backed up
+`backend/data/uploads/`. The directory is ignored by Git and must be backed up
 separately from SQLite when photograph retention is required.
 
 Sales and Admin can create quotation drafts from approved surveys and

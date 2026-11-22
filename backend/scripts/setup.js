@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { randomBytes } from 'node:crypto'
-import { loadConfig, SERVER_ROOT } from '../src/config/env.js'
+import { loadConfig, BACKEND_ROOT } from '../src/config/env.js'
 import { openDatabase } from '../src/database/connection.js'
 import { initializeDatabase } from '../src/database/schema.js'
 import { seedDemoUsers } from '../src/services/demoSeedService.js'
@@ -10,7 +10,7 @@ if (process.env.NODE_ENV === 'production') {
   throw new Error('npm run setup is for local development only.')
 }
 
-const envPath = path.join(SERVER_ROOT, '.env')
+const envPath = path.join(BACKEND_ROOT, '.env')
 if (!fs.existsSync(envPath)) {
   const envContents = [
     `JWT_SECRET=${randomBytes(48).toString('base64url')}`,
