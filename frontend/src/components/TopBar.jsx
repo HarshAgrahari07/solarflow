@@ -9,6 +9,7 @@ export default function TopBar({
   query,
   onQueryChange,
   onMenu,
+  sidebarOpen = false,
   onLogout,
   alertsEnabled,
   showSearch = true,
@@ -55,7 +56,14 @@ export default function TopBar({
 
   return (
     <header className="topbar">
-      <button type="button" className="icon-button menu-button" onClick={onMenu} aria-label="Open menu">
+      <button
+        type="button"
+        className="icon-button menu-button"
+        onClick={onMenu}
+        aria-label={sidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
+        aria-expanded={sidebarOpen}
+        aria-controls="primary-navigation"
+      >
         <Icon name="menu" />
       </button>
 

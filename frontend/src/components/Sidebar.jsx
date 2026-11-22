@@ -3,7 +3,7 @@ import Icon from './Icon'
 
 export default function Sidebar({ activeId, items = NAV_ITEMS, open, onSelect, onClose }) {
   return (
-    <aside className={`sidebar${open ? ' is-open' : ''}`} aria-label="Primary">
+    <aside id="primary-navigation" className={`sidebar${open ? ' is-open' : ''}`} aria-label="Primary navigation">
       <div className="brand">
         <span className="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 32 32">
@@ -16,7 +16,13 @@ export default function Sidebar({ activeId, items = NAV_ITEMS, open, onSelect, o
           <strong>SunPower Solutions</strong>
           <span>Solar Installation Management</span>
         </span>
-        <button type="button" className="icon-button sidebar-close" onClick={onClose} aria-label="Close menu">
+        <button
+          type="button"
+          className="icon-button sidebar-close"
+          onClick={onClose}
+          aria-label="Close navigation menu"
+          aria-controls="primary-navigation"
+        >
           <Icon name="close" />
         </button>
       </div>

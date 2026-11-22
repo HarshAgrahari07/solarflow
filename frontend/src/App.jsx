@@ -22,6 +22,7 @@ import QuotationManagement from './components/QuotationManagement'
 import OperationalWorkspace from './components/OperationalWorkspace'
 import TopBar from './components/TopBar'
 import { ROLE_WORKSPACES } from './auth/roleAccess'
+import useSidebarMenu from './hooks/useSidebarMenu'
 import {
   ACTIVITIES,
   INSTALLATIONS,
@@ -35,7 +36,7 @@ import {
 function AdminWorkspace({ user, onLogout }) {
   const [activeNav, setActiveNav] = useState('overview')
   const [query, setQuery] = useState('')
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { sidebarOpen, toggleSidebar, closeSidebar } = useSidebarMenu()
   const [action, setAction] = useState(null)
   const [notice, setNotice] = useState(null)
   const [workspace, setWorkspace] = useState({
@@ -70,7 +71,7 @@ function AdminWorkspace({ user, onLogout }) {
 
   function selectNav(id) {
     setActiveNav(id)
-    setSidebarOpen(false)
+    closeSidebar()
     setQuery('')
   }
 
@@ -185,7 +186,7 @@ function AdminWorkspace({ user, onLogout }) {
 
     setQuery('')
     setAction(null)
-    setSidebarOpen(false)
+    closeSidebar()
   }
 
   function handleConfirmOrder(quoteId) {
@@ -337,14 +338,15 @@ function AdminWorkspace({ user, onLogout }) {
         items={NAV_ITEMS}
         open={sidebarOpen}
         onSelect={selectNav}
-        onClose={() => setSidebarOpen(false)}
+        onClose={closeSidebar}
       />
       {sidebarOpen && (
         <button
           type="button"
           className="backdrop"
-          aria-label="Close menu"
-          onClick={() => setSidebarOpen(false)}
+          aria-label="Close navigation menu"
+          aria-controls="primary-navigation"
+          onClick={closeSidebar}
         />
       )}
 
@@ -354,7 +356,8 @@ function AdminWorkspace({ user, onLogout }) {
           user={user}
           query={query}
           onQueryChange={setQuery}
-          onMenu={() => setSidebarOpen(true)}
+          sidebarOpen={sidebarOpen}
+          onMenu={toggleSidebar}
           onLogout={onLogout}
           alertsEnabled={workspace.alerts}
         />
