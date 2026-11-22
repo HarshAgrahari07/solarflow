@@ -859,7 +859,7 @@ export function completeInstallation(database, jobId, actor) {
 
 function deliveredSerial(database, serialNumber) {
   return database.prepare(`
-    SELECT equipment.*, serial.id AS serial_id, serial.serial_number, serial.product_type,
+    SELECT equipment.*, equipment.id AS serial_id, serial.serial_number, serial.product_type,
            serial.product_name, serial.customer_id, serial.customer_name,
            serial.delivery_completed_at, serial.warranty_starts_on,
            serial.warranty_ends_on, serial.warranty_status
@@ -1495,6 +1495,18 @@ export function getFinanceReport(database, { from, to }, actor) {
     ORDER BY order_record.created_at DESC
   `).all(from ?? null, from ?? null, to ?? null, to ?? null)
   const completed = projects.filter((project) => project.costsComplete && project.revenueAmount !== null)
+  const installationStatuses = database.prepare(`
+    SELECT status, count(*) AS count
+    FROM installation_jobs
+    GROUP BY status
+    ORDER BY status
+  `).all()
+  const serviceTicketStatuses = database.prepare(`
+    SELECT status, count(*) AS count
+    FROM service_tickets
+    GROUP BY status
+    ORDER BY status
+  `).all()
   return {
     from: from ?? null,
     to: to ?? null,
@@ -1506,6 +1518,10 @@ export function getFinanceReport(database, { from, to }, actor) {
       : null,
     incompleteProjectCount: projects.filter((project) => !project.costsComplete || project.revenueAmount === null).length,
     projects,
+    operations: {
+      installationStatuses,
+      serviceTicketStatuses,
+    },
   }
 }
 

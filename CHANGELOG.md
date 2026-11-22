@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-22 — Warranty, service, finance, and reporting fixes
+
+- **Feature implemented:** Corrected delivered serial lookup to use the product serial primary key; verified delivery-based inverter, panel, and battery warranty periods without assigning a charge-controller duration. Improved service-ticket details and responsive layout, and exercised support assignment, covered and uncovered resolutions, customer confirmation, and ownership checks. Split Finance & Accounts transaction entry from read-only Reports & Analytics, adding live inventory, installation, and service-ticket summaries.
+- **Important files changed:** `server/src/services/workflowService.js`, `server/test/workflows.test.js`, `client/src/components/OperationalWorkspace.jsx`, `client/src/operationalWorkspaceSections.js`, `client/test/operationalWorkspace.test.js`, `client/src/App.css`.
+- **Tests passed:** Backend 59/59; frontend 5/5; frontend lint; production frontend build.
+- **Known limitations:** Financial date filters scope projects by order date; inventory, installation, and service-ticket status summaries are all-time aggregates.
+
 ## 2026-11-22 — Railway production readiness
 
 - **Feature implemented:** Added a single-service Railway Docker deployment that builds the Vite client and serves it with Express, explicit SPA/API fallback separation, same-origin validation, production proxy trust, secure cookies, protected persistent SQLite/upload paths, startup migrations, database readiness checks, and generated initial-admin provisioning. Documented Railway volume, environment, seed, backup, restore, and troubleshooting steps.

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../auth/useAuth'
+import { hasOperationalPanel } from '../operationalWorkspaceSections.js'
 
 const today = new Date().toISOString().slice(0, 10)
 const nowLocal = (offsetMs = 0) => {
@@ -53,11 +54,14 @@ export default function OperationalWorkspace({ user, section }) {
   const [serialResult, setSerialResult] = useState(null)
   const [reportDates, setReportDates] = useState({ from: '', to: '' })
 
-  const needsStock = ['inventory', 'finance', 'reports'].includes(section)
-  const needsDispatches = section === 'inventory'
-  const needsInstallations = section === 'installations'
-  const needsTickets = ['service', 'warranties'].includes(section)
-  const needsFinance = ['finance', 'reports'].includes(section)
+  const needsStock = ['inventory-table', 'inventory-summary', 'stock-purchases']
+    .some((panel) => hasOperationalPanel(section, panel))
+  const needsStockPurchases = hasOperationalPanel(section, 'stock-purchases')
+  const needsDispatches = hasOperationalPanel(section, 'dispatches')
+  const needsInstallations = hasOperationalPanel(section, 'installations')
+  const needsTickets = hasOperationalPanel(section, 'service-tickets')
+  const needsFinancialSummary = hasOperationalPanel(section, 'financial-summary')
+  const needsFinanceTransactions = hasOperationalPanel(section, 'transaction-entry')
 
   const reload = useCallback(async (dates = reportDates) => {
     try {
@@ -67,6 +71,8 @@ export default function OperationalWorkspace({ user, section }) {
       }
       if (needsDispatches) {
         tasks.push(request('/api/operations/dispatches').then((result) => setDispatches(result.dispatches)))
+      }
+      if (needsStockPurchases) {
         tasks.push(request('/api/operations/finance/purchases').then((result) => setPurchases(result.purchases)))
       }
       if (needsInstallations) {
@@ -78,15 +84,16 @@ export default function OperationalWorkspace({ user, section }) {
       if (needsTickets) {
         tasks.push(request('/api/operations/service-tickets').then((result) => setTickets(result.tickets)))
       }
-      if (needsFinance) {
+      if (needsFinanceTransactions) {
         tasks.push(request('/api/operations/orders').then((result) => setOrders(result.orders)))
         tasks.push(request('/api/operations/finance/invoices').then((result) => setInvoices(result.invoices)))
         tasks.push(request('/api/operations/finance/payroll/options').then((result) => setPayrollOptions(result.options)))
         tasks.push(request('/api/operations/finance/payroll').then((result) => setPayroll(result.payroll)))
+      }
+      if (needsFinancialSummary) {
         tasks.push(request(`/api/operations/finance/report${dates.from || dates.to
           ? `?${new URLSearchParams(Object.fromEntries(Object.entries(dates).filter(([, value]) => value))).toString()}`
           : ''}`).then((result) => setReport(result.report)))
-        tasks.push(request('/api/operations/finance/purchases').then((result) => setPurchases(result.purchases)))
       }
       await Promise.all(tasks)
     } catch (requestError) {
@@ -94,7 +101,18 @@ export default function OperationalWorkspace({ user, section }) {
     } finally {
       setLoading(false)
     }
-  }, [needsDispatches, needsFinance, needsInstallations, needsStock, needsTickets, reportDates, request, user.role])
+  }, [
+    needsDispatches,
+    needsFinanceTransactions,
+    needsFinancialSummary,
+    needsInstallations,
+    needsStock,
+    needsStockPurchases,
+    needsTickets,
+    reportDates,
+    request,
+    user.role,
+  ])
 
   useEffect(() => {
     Promise.resolve().then(reload)
@@ -329,6 +347,16 @@ export default function OperationalWorkspace({ user, section }) {
     { id: item.warehouseId, name: item.warehouseName },
   ])).values()]
   const uniqueItems = [...new Map(inventory.map((item) => [item.id, item])).values()]
+  const lowStockInventory = inventory.filter((item) => item.lowStock)
+  const installationStatuses = report?.operations?.installationStatuses || []
+  const serviceTicketStatuses = report?.operations?.serviceTicketStatuses || []
+  const openServiceTickets = serviceTicketStatuses
+    .filter((item) => item.status !== 'CLOSED')
+    .reduce((total, item) => total + item.count, 0)
+  const closedServiceTickets = serviceTicketStatuses
+    .filter((item) => item.status === 'CLOSED')
+    .reduce((total, item) => total + item.count, 0)
+  const outstandingBalance = orders.reduce((total, order) => total + Number(order.outstandingAmount || 0), 0)
 
   return (
     <div className="dashboard operational-workspace">
@@ -337,7 +365,7 @@ export default function OperationalWorkspace({ user, section }) {
       {notice && <p className="form-success survey-message" role="status">{notice}</p>}
       {!loading && !error && (
         <>
-          {needsStock && (
+          {hasOperationalPanel(section, 'inventory-table') && (
             <section className="panel">
               <div className="section-head">
                 <div><h2>Live inventory</h2><p>Quantities and alerts are based on recorded stock movements.</p></div>
@@ -460,7 +488,7 @@ export default function OperationalWorkspace({ user, section }) {
 
           {needsTickets && (
             <>
-              {section === 'warranties' && <section className="panel">
+              {hasOperationalPanel(section, 'warranty-lookup') && <section className="panel">
                 <h2>Serial and warranty lookup</h2>
                 <form className="operational-actions" onSubmit={lookupSerial}>
                   <input aria-label="Serial number" value={serialSearch} onChange={(event) => setSerialSearch(event.target.value)} placeholder="Enter a delivered serial number" required />
@@ -470,11 +498,25 @@ export default function OperationalWorkspace({ user, section }) {
               </section>}
               <section className="panel">
                 <div className="section-head"><div><h2>Service tickets</h2><p>Customer-owned records are scoped by the server; resolutions remain open until customer confirmation.</p></div></div>
-                {tickets.length ? tickets.map((ticket) => <article className="customer-project-card" key={ticket.id}>
-                  <div><strong>{ticket.ticketNumber} · {ticket.customerName}</strong><span>{ticket.subject} · {ticket.status}</span><span>{ticket.description}</span><span>{ticket.serials.map((serial) => `${serial.productName}: ${serial.serialNumber}`).join(' · ') || 'No equipment serial linked'}</span></div>
+                {tickets.length ? tickets.map((ticket) => <article className="service-ticket-card" key={ticket.id}>
+                  <header className="service-ticket-heading">
+                    <div><span className="stat-label">Ticket number</span><strong>{ticket.ticketNumber}</strong></div>
+                    <span className={`status status-${ticket.status.toLowerCase().replaceAll('_', '-')}`}>{ticket.status.replaceAll('_', ' ')}</span>
+                  </header>
+                  <h3>{ticket.subject}</h3>
+                  <dl className="service-ticket-details">
+                    <div><dt>Customer</dt><dd>{ticket.customerName}</dd></div>
+                    <div><dt>Issue</dt><dd>{ticket.description || 'No issue details provided.'}</dd></div>
+                    <div><dt>Serial number</dt><dd>{ticket.serials.length
+                      ? ticket.serials.map((serial) => <span className="service-ticket-serial" key={serial.serialNumber}>{serial.productName}: {serial.serialNumber}</span>)
+                      : 'No equipment serial linked'}</dd></div>
+                    <div><dt>Status</dt><dd>{ticket.status}</dd></div>
+                    <div><dt>Assigned to</dt><dd>{ticket.assigneeName || 'Unassigned'}</dd></div>
+                  </dl>
                   {user.role === 'SUPPORT' && ['OPEN', 'IN_PROGRESS'].includes(ticket.status) && (
                     <>
                       {!ticket.assigneeName && <button className="btn btn-secondary" disabled={busy} onClick={() => perform(() => request(`/api/operations/service-tickets/${encodeURIComponent(ticket.id)}/assignment`, { method: 'PATCH', body: { supportUserId: user.id } }), 'Ticket assigned to you.')}>Assign to me</button>}
+                      <p className="role-data-note">Active warranty repairs and replacements are recorded at ₹0. Enter applicable parts and labour charges only when warranty does not cover the work.</p>
                       <form className="crm-form-grid" onSubmit={(event) => resolveTicket(event, ticket)}>
                         <label className="field"><span>Resolution</span><select name="type"><option value="REPAIR">Repair</option><option value="REPLACEMENT">Replacement</option><option value="ADVICE">Advice</option><option value="NO_FAULT_FOUND">No fault found</option><option value="OTHER">Other</option></select></label>
                         <label className="field"><span>Parts charge (₹)</span><input name="partsCharge" type="number" min="0" step="0.01" defaultValue="0" required /></label>
@@ -484,42 +526,93 @@ export default function OperationalWorkspace({ user, section }) {
                       </form>
                     </>
                   )}
-                  {ticket.resolutions.map((resolution) => <p key={resolution.id} className="role-data-note">Resolution: {resolution.type} · Warranty {resolution.warrantyCoverage} · Parts {inr(resolution.partsCharge)} · Labour {inr(resolution.labourCharge)}. Awaiting customer confirmation.</p>)}
+                  {ticket.resolutions.map((resolution) => <div key={resolution.id} className="service-resolution">
+                    <strong>{resolution.type} · {resolution.warrantyCoverage}</strong>
+                    <span>Parts {inr(resolution.partsCharge)} · Labour {inr(resolution.labourCharge)}</span>
+                    {resolution.notes && <p>{resolution.notes}</p>}
+                    {ticket.status === 'WAITING_CUSTOMER' && <small>Awaiting customer confirmation.</small>}
+                  </div>)}
                 </article>) : <EmptyState>No service tickets are available.</EmptyState>}
               </section>
             </>
           )}
 
-          {needsFinance && (
+          {needsFinancialSummary && (
+            <section className="role-metrics">
+              <article className="stat-card"><p className="stat-label">Configured revenue</p><p className="stat-value">{inr(report?.knownRevenue)}</p><p className="stat-note">Derived only from configured quotation or invoice line items.</p></article>
+              <article className="stat-card"><p className="stat-label">Known costs</p><p className="stat-value">{inr(report?.knownCosts)}</p><p className="stat-note">Reported expenses and recorded stock/payroll costs.</p></article>
+              <article className="stat-card"><p className="stat-label">Complete project profit</p><p className="stat-value">{inr(report?.completeProfitTotal)}</p><p className="stat-note">Only projects with complete cost and revenue records.</p></article>
+              <article className="stat-card"><p className="stat-label">Cost completeness</p><p className="stat-value">{report?.incompleteProjectCount ?? 0} incomplete</p><p className="stat-note">Across {report?.projectCount ?? 0} projects in the selected range.</p></article>
+              {needsFinanceTransactions && <article className="stat-card"><p className="stat-label">Outstanding balances</p><p className="stat-value">{inr(outstandingBalance)}</p><p className="stat-note">Summed from current order balances.</p></article>}
+            </section>
+          )}
+
+          {hasOperationalPanel(section, 'project-profitability') && (
+            <section className="panel">
+              <div className="section-head"><div><h2>Project profitability</h2><p>Incomplete costs remain explicitly unreported, never estimated.</p></div></div>
+              <form className="operational-actions" onSubmit={(event) => {
+                event.preventDefault()
+                const form = new FormData(event.currentTarget)
+                const dates = { from: form.get('from'), to: form.get('to') }
+                setReportDates(dates)
+                setError('')
+                reload(dates)
+              }}>
+                <label className="field"><span>From</span><input name="from" type="date" defaultValue={reportDates.from} max={today} /></label>
+                <label className="field"><span>To</span><input name="to" type="date" defaultValue={reportDates.to} max={today} /></label>
+                <button className="btn btn-secondary">Filter dates</button>
+              </form>
+              {report?.projects?.length ? <div className="table-wrap"><table className="data-table">
+                <thead><tr><th>Order</th><th>Customer</th><th>Revenue</th><th>Known costs</th><th>Profit</th><th>Cost completeness</th></tr></thead>
+                <tbody>{report.projects.map((project) => <tr key={project.orderId}>
+                  <td>{project.orderNumber} {project.isDemo ? <small>(Synthetic)</small> : null}</td><td>{project.customerName}</td>
+                  <td>{inr(project.revenueAmount)}</td><td>{inr(project.projectCostAmount)}</td><td>{inr(project.projectProfitAmount)}</td>
+                  <td>{project.costsComplete ? 'Complete' : 'Incomplete'}</td>
+                </tr>)}</tbody>
+              </table></div> : <EmptyState>No projects match this date range.</EmptyState>}
+            </section>
+          )}
+
+          {hasOperationalPanel(section, 'inventory-summary') && (
+            <section className="panel">
+              <div className="section-head"><div><h2>Inventory stock summary</h2><p>Live warehouse availability and reorder thresholds.</p></div></div>
+              <div className="role-metrics">
+                <article className="stat-card"><p className="stat-label">Warehouse stock lines</p><p className="stat-value">{inventory.length}</p><p className="stat-note">Active item and warehouse combinations.</p></article>
+                <article className="stat-card"><p className="stat-label">Low-stock alerts</p><p className="stat-value">{lowStockInventory.length}</p><p className="stat-note">Lines at or below their configured reorder level.</p></article>
+              </div>
+              {lowStockInventory.length ? <div className="table-wrap"><table className="data-table">
+                <thead><tr><th>SKU / Item</th><th>Warehouse</th><th>Available</th><th>Reorder level</th></tr></thead>
+                <tbody>{lowStockInventory.map((item) => <tr key={`${item.id}-${item.warehouseId}`}>
+                  <td><strong>{item.sku}</strong><br />{item.name}</td>
+                  <td>{item.warehouseName}</td><td>{item.available} {item.unit}</td><td>{item.reorderLevel} {item.unit}</td>
+                </tr>)}</tbody>
+              </table></div> : <EmptyState>No items are at or below their reorder level.</EmptyState>}
+            </section>
+          )}
+
+          {hasOperationalPanel(section, 'installation-summary') && (
+            <section className="panel">
+              <div className="section-head"><div><h2>Installation status</h2><p>Counts are grouped by current persisted installation status.</p></div></div>
+              {installationStatuses.length ? <div className="role-metrics">
+                {installationStatuses.map((item) => <article className="stat-card" key={item.status}>
+                  <p className="stat-label">{item.status.replaceAll('_', ' ')}</p><p className="stat-value">{item.count}</p>
+                </article>)}
+              </div> : <EmptyState>No installation records are available.</EmptyState>}
+            </section>
+          )}
+
+          {hasOperationalPanel(section, 'service-summary') && (
+            <section className="panel">
+              <div className="section-head"><div><h2>Service ticket summary</h2><p>Open includes tickets awaiting customer confirmation.</p></div></div>
+              <div className="role-metrics">
+                <article className="stat-card"><p className="stat-label">Open tickets</p><p className="stat-value">{openServiceTickets}</p></article>
+                <article className="stat-card"><p className="stat-label">Closed tickets</p><p className="stat-value">{closedServiceTickets}</p></article>
+              </div>
+            </section>
+          )}
+
+          {needsFinanceTransactions && (
             <>
-              <section className="role-metrics">
-                <article className="stat-card"><p className="stat-label">Configured revenue</p><p className="stat-value">{inr(report?.knownRevenue)}</p><p className="stat-note">Derived only from configured quotation or invoice line items.</p></article>
-                <article className="stat-card"><p className="stat-label">Known costs</p><p className="stat-value">{inr(report?.knownCosts)}</p><p className="stat-note">Reported expenses and recorded stock/payroll costs.</p></article>
-                <article className="stat-card"><p className="stat-label">Complete project profit</p><p className="stat-value">{inr(report?.completeProfitTotal)}</p><p className="stat-note">{report?.incompleteProjectCount ?? 0} projects have incomplete cost or revenue records.</p></article>
-              </section>
-              <section className="panel">
-                <div className="section-head"><div><h2>Project profitability</h2><p>Incomplete costs remain explicitly unreported, never estimated.</p></div></div>
-                <form className="operational-actions" onSubmit={(event) => {
-                  event.preventDefault()
-                  const form = new FormData(event.currentTarget)
-                  const dates = { from: form.get('from'), to: form.get('to') }
-                  setReportDates(dates)
-                  setError('')
-                  reload(dates)
-                }}>
-                  <label className="field"><span>From</span><input name="from" type="date" defaultValue={reportDates.from} max={today} /></label>
-                  <label className="field"><span>To</span><input name="to" type="date" defaultValue={reportDates.to} max={today} /></label>
-                  <button className="btn btn-secondary">Filter dates</button>
-                </form>
-                <div className="table-wrap"><table className="data-table">
-                  <thead><tr><th>Order</th><th>Customer</th><th>Revenue</th><th>Known costs</th><th>Profit</th><th>Cost completeness</th></tr></thead>
-                  <tbody>{(report?.projects || []).map((project) => <tr key={project.orderId}>
-                    <td>{project.orderNumber} {project.isDemo ? <small>(Synthetic)</small> : null}</td><td>{project.customerName}</td>
-                    <td>{inr(project.revenueAmount)}</td><td>{inr(project.projectCostAmount)}</td><td>{inr(project.projectProfitAmount)}</td>
-                    <td>{project.costsComplete ? 'Complete' : 'Incomplete'}</td>
-                  </tr>)}</tbody>
-                </table></div>
-              </section>
               <section className="panel">
                 <h2>Invoices</h2>
                 <form className="operational-actions" onSubmit={createInvoice}>
@@ -529,10 +622,10 @@ export default function OperationalWorkspace({ user, section }) {
                   </select></label>
                   <button className="btn btn-primary" disabled={busy}>Create draft invoice</button>
                 </form>
-                {invoices.map((invoice) => <article className="customer-project-card" key={invoice.id}>
+                {invoices.length ? invoices.map((invoice) => <article className="customer-project-card" key={invoice.id}>
                   <div><strong>{invoice.invoiceNumber} · {invoice.orderNumber}</strong><span>{invoice.status} · {inr(invoice.totalAmount)}</span></div>
                   {invoice.status === 'DRAFT' && <button className="btn btn-secondary" disabled={busy} onClick={() => invoiceStatus(invoice, 'ISSUED')}>Issue invoice</button>}
-                </article>)}
+                </article>) : <EmptyState>No invoices are recorded.</EmptyState>}
               </section>
               <section className="panel">
                 <h2>Record payment</h2>
@@ -589,6 +682,7 @@ export default function OperationalWorkspace({ user, section }) {
                   <div className="crm-form-span"><button className="btn btn-primary" disabled={busy}>Create purchase</button></div>
                 </form>
                 <PurchaseList purchases={purchases} busy={busy} onOpen={loadPurchase} />
+                {selectedPurchase && <PurchaseReceiveForm purchase={selectedPurchase} values={serialInputs} onChange={setSerialInputs} onSubmit={receivePurchase} onCancel={() => setSelectedPurchase(null)} busy={busy} />}
               </section>
             </>
           )}
